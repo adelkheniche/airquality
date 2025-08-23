@@ -8,6 +8,8 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <!-- Supabase JS client -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Chart.js for CO₂ graph -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-gray-100 text-gray-800">
 <!-- Page Header -->
@@ -86,7 +88,7 @@ Humidity
 </div>
 </div>
 <!-- Card 5: CO₂ -->
-<div class="bg-white rounded-xl shadow p-4 flex flex-col">
+<div id="co2-card" class="bg-white rounded-xl shadow p-4 flex flex-col">
 <h2 class="text-sm font-semibold text-gray-600 uppercase flex items-center mb-1">
 <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 mr-1 text-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
@@ -121,9 +123,17 @@ Pressure
 <canvas id="sparkline-press" width="100" height="40"></canvas>
 </div>
 </div>
-</div>
-</div>
-<!-- Include the main script file -->
-<script src="script.js"></script>
-</body>
-</html>
+ </div>
+ </div>
+ <!-- CO₂ Line Chart -->
+ <div class="max-w-6xl mx-auto p-4">
+   <h2 class="text-lg font-semibold text-gray-700 mb-2">CO₂ Levels (ppm)</h2>
+   <canvas id="co2-chart" height="200"></canvas>
+   <p id="co2-alert" class="mt-2 text-red-600 font-semibold hidden">
+     CO₂ levels exceed European safety threshold (1000 ppm)
+   </p>
+ </div>
+ <!-- Include the main script file -->
+ <script src="script.js"></script>
+ </body>
+ </html>
