@@ -1,0 +1,15 @@
+start_ts,end_ts,tags,note
+2025-08-21 08:00:00,2025-08-21 12:00:00,four_emaillage,Cuisson émaillage vases collection été
+2025-08-21 14:00:00,2025-08-21 16:30:00,four_biscuit,Cuisson biscuit première série
+2025-08-21 09:00:00,2025-08-21 17:00:00,presence,Journée complète atelier
+2025-08-21 15:00:00,2025-08-21 15:45:00,prep_barbotine,Préparation barbotine grès blanc
+2025-08-21 16:00:00,2025-08-21 16:30:00,coulage_platre,Coulage moules plâtre nouveaux modèles
+2025-08-22 07:30:00,2025-08-22 09:00:00,impr3d_cera,Impression 3D argile expérimentation
+2025-08-22 08:00:00,2025-08-22 17:00:00,fenetre_ouverte,Aération atelier jour venteux
+2025-08-22 09:00:00,2025-08-22 16:00:00,presence,Présence atelier journée production
+2025-08-22 14:00:00,2025-08-22 14:30:00,masque,Port masque ponçage pièces sèches
+2025-08-20 10:00:00,2025-08-20 11:30:00,four_emaillage#presence,Cuisson test émaux nouveaux + présence
+2025-08-20 13:30:00,2025-08-20 14:00:00,prep_barbotine#masque,Préparation barbotine avec masque
+2025-08-19 16:00:00,2025-08-19 18:00:00,impr3d_cera#fenetre_ouverte,Impression 3D avec fenêtre ouverte
+2025-08-23 09:00:00,2025-08-23 12:00:00,four_biscuit#presence,Cuisson biscuit série courante
+2025-08-23 14:30:00,2025-08-23 15:15:00,coulage_platre#masque#fenetre_ouverte,Coulage avec protections maximales

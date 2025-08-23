@@ -1,0 +1,65 @@
+Context. You already generated the full MVP (front on GitHub Pages, back on Supabase). The app is functional but the Day×Hour heatmap is hard to read. Keep the architecture, data model, KPIs, tables, and styles as-is. Only improve the heatmap and its immediate UI for accessibility and readability.
+
+Requirements (strict)
+
+Library: Plotly.js (CDN). One chart, responsive. No extra libs.
+
+Data: 7×24 matrix = median PM2.5 per weekday × hour for the selected period. Missing bins allowed.
+
+Palette & scale: Sequential, perceptually uniform (Plotly Viridis). Clamp to [5, 75] µg/m³. Colorbar ticks: 10, 15, 25, 50, 75 labeled PM2.5 (µg/m³).
+
+Axes:
+
+Y: Monday→Sunday (French labels).
+
+X: 00h..23h, show ticks every 2h (00h, 02h, …, 22h).
+
+Legibility: subtle grid separators between hours/days; large font; generous padding; numbers use tabular figures.
+
+Tooltips: Mardi 14h — 22,3 µg/m³ via hovertemplate. Values must be readable both on hover and via keyboard focus on the figure container.
+
+Accessibility:
+
+Wrap in <figure> with <figcaption> explaining the chart.
+
+Above the chart, compute and render a text summary: “Heures les plus chargées cette période : 10–13 h, 18–20 h.”
+
+Add threshold chips (text + color) for <15 OK, 15–25 Monitor, >25 At risk (do not rely on color alone).
+
+Provide a visible focus ring on the chart container and make it keyboard reachable. Announce filter changes in an aria-live="polite" region.
+
+Export button: “Exporter en PNG” using Plotly download image API.
+
+No regressions: Do not change KPIs, “Activities → Risk” table, RPC contracts, RLS, or thresholds.
+
+Deliverables (return only changed files/sections)
+
+index.html: replace the heatmap section with <figure> + <figcaption> + threshold chips + export button, matching the current design tokens.
+
+styles.css: add minimal classes for chips and focus ring (keep existing palette).
+
+main.js:
+
+Implement renderHeatmap(matrix7x24, opts) using Plotly Heatmap with the specs above.
+
+Implement computeBusyHoursSummary(matrix7x24) returning ranges like 10–13 h, 18–20 h.
+
+Wire the export button.
+
+Ensure ARIA live announcement after filters apply.
+
+Acceptance checklist (the app must pass all)
+
+Clear Viridis heatmap with labeled colorbar ticks 10/15/25/50/75 µg/m³.
+
+Axes: Monday→Sunday; hour ticks every 2h 00h…22h.
+
+Hovertemplate shows Jour Heure — valeur µg/m³; keyboard focus on chart container is possible and announced.
+
+Text summary of busiest hours is present above the chart; threshold chips are visible with text labels.
+
+Export PNG works; layout is responsive (desktop height ~420–520 px).
+
+No other UI/logic changed.
+
+Now output only the updated code blocks for index.html, styles.css (added rules), and main.js (new/changed functions).

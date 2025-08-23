@@ -1,0 +1,202 @@
+Here is the **single prompt** to give to your AI. Paste it as-is.
+
+---
+
+**Role.** You are an AI that generates a **complete MVP** for an air-quality analysis tool for a ceramics workshop. **Front end is 100% static on GitHub Pages. Back end is on Supabase.** You must **deliver all code and scripts** ready to copy/deploy, with no TODOs or vague placeholders.
+
+## Business Objective (clear)
+
+Test the hypothesis: **some ceramic activities are riskier than others** and therefore it may be necessary to **start the kiln at night**, **open the window**, or **wear a mask**.
+Sensor data are sent **every 15 minutes** (ESP32). **Post-annotation** of time windows using **predefined hashtags** (e.g., `#four_emaillage`, `#four_biscuit`, `#coulage_platre`, `#prep_barbotine`, `#impr3d_cera`, `#presence`, `#fenetre_ouverte`, `#masque`).
+
+## Deliverables (separate files, each file in its own code block)
+
+1. `README.md` — deployment steps (GitHub Pages + Supabase).
+2. **Front end (GitHub Pages)**
+
+   * `index.html` — minimal, accessible SPA, French labels, **Tailwind CDN**.
+   * `styles.css` — extra styles (readable tables).
+   * `main.js` — UI logic (see “UI Functions”).
+   * `config.example.js` — constants `SUPABASE_URL`, `SUPABASE_ANON_KEY`.
+   * **CDN-only dependencies**: Tailwind, **dayjs + timezone (Europe/Paris)**, **Plotly** (heatmap), **Supabase JS**.
+3. **Supabase (SQL)**
+
+   * `schema.sql` — tables, indexes, RLS, roles, policies, views/materialized views, RPC functions, **pg\_cron**.
+   * `seed.sql` — insertion of **hashtags** (table `tags`) and a sample `device_token` (hashed).
+4. **Edge Function (Supabase)**
+
+   * `functions/ingest/index.ts` — Deno. Batch ingestion. Auth via **Bearer \<DEVICE\_TOKEN>** (SHA-256 checked against table).
+5. **Sample activity import CSV**
+
+   * `activities_example.csv` — `start_ts,end_ts,tags,note`.
+
+> Provide final code for these files. No pseudo-code.
+
+---
+
+## Constraints & Standards
+
+* **Sensor frequency**: 1 point **every 15 minutes** (≈ 96/day).
+* **Units**: µg/m³ (PM1, PM2.5, PM10).
+* **Timezone**: Europe/Paris for display. **Store in UTC**.
+* **Post-annotation**: create time intervals with **multi-select hashtags**.
+* **Front end for non-statisticians**: **3 KPIs**, **Day×Hour heatmap**, **“Activities → Risk” table**, **Peaks list**.
+* **No secrets in the front** (use **anon key** + **RLS**).
+* **No build step** (CDN-only).
+
+---
+
+## Data Model (Supabase/Postgres)
+
+Tables (place in `schema.sql`):
+
+* `readings(ts timestamptz, sensor_id text, pm1 real, pm25 real, pm10 real, temp_c real, rh real, primary key (ts, sensor_id))`
+* `activity_intervals(id uuid primary key default gen_random_uuid(), start_ts timestamptz not null, end_ts timestamptz not null, note text)`
+* `tags(id uuid primary key default gen_random_uuid(), slug text unique not null)`
+* `activity_tags(activity_id uuid references activity_intervals(id) on delete cascade, tag_id uuid references tags(id) on delete cascade, primary key(activity_id, tag_id))`
+* `device_tokens(sensor_id text primary key, token_sha256 text not null)` — **hashed** storage of device token.
+
+Recommended indexes on `readings(ts)`, `activity_intervals(start_ts,end_ts)`.
+
+### Views / Materialized Views & Functions
+
+* **Hourly baseline (14 days)** (median + MAD): materialized view `mv_baseline_hourly` (columns: `hod int`, `median_pm25 real`, `mad_pm25 real`).
+
+  * Median: `percentile_cont(0.5)`; MAD: median of |pm25 − median|.
+* **Peak detection**: materialized view `mv_peaks` with columns:
+  `peak_id uuid, sensor_id text, start_ts timestamptz, end_ts timestamptz, pm25_max real, baseline real, auc_above_baseline real`.
+
+  * **Peak rule**: a 15‑min bin is a “peak” if `pm25 > greatest(25, baseline + 2*mad)` using the baseline for the **same hour-of-day**.
+  * Merge contiguous bins into a single peak (gaps-and-islands using bin index = floor(epoch/900)).
+  * `auc_above_baseline` = Σ(pm25 − baseline) × 15 min (in µg·min/m³).
+* **Peak ↔ activity overlap**: view `vw_peaks_with_tags` joining `mv_peaks` to overlapping intervals (≥ 1 min) and listing tags.
+* **Summary by hashtag and period** (RPC): function `summary_by_tag_range(from_ts timestamptz, to_ts timestamptz)` **SECURITY DEFINER**, returns per tag:
+  `tag, hours_observed, pm25_median, pm25_p95, pct_over15, peaks_per_hour, auc_per_hour, control_pm25_median, control_pct_over15, control_peaks_per_hour`.
+
+  * **Matched control**: windows **without any activity** at the **same hour-of-day** and **same day-of-week**.
+* **Peaks within a period** (RPC): `peaks_in_range(from_ts timestamptz, to_ts timestamptz)` returning peaks + tags.
+
+### Security (RLS)
+
+* RLS **ON** on all tables.
+* **No SELECT** on raw tables for `anon`/`authenticated`.
+* GRANT **SELECT** on `mv_peaks` and `vw_peaks_with_tags` to `authenticated`.
+* GRANT **EXECUTE** on RPCs to `authenticated`.
+* Edge Function uses the **service key** server-side (never exposed).
+
+### Scheduling (pg\_cron)
+
+* Enable `pg_cron`.
+* Jobs:
+
+  * `REFRESH MATERIALIZED VIEW CONCURRENTLY mv_baseline_hourly` **once per day**.
+  * `REFRESH MATERIALIZED VIEW CONCURRENTLY mv_peaks` **once per hour**.
+
+### Seed (in `seed.sql`)
+
+* Tags: `four_emaillage`,`four_biscuit`,`coulage_platre`,`prep_barbotine`,`impr3d_cera`,`presence`,`fenetre_ouverte`,`masque`.
+* A sample `device_tokens` row with `sensor_id='esp32-atelier-01'` and a `token_sha256` (explain how to generate SHA‑256).
+
+---
+
+## Edge Function `ingest` (Deno)
+
+* URL: `/functions/v1/ingest` (HTTPS).
+* **Auth**: header `Authorization: Bearer <DEVICE_TOKEN>` → SHA‑256 and compare with `device_tokens`.
+* JSON body (batch):
+
+```json
+{
+  "sensor_id": "esp32-atelier-01",
+  "points": [
+    {"ts":"2025-08-22T14:00:00Z","pm1":6.2,"pm25":18.7,"pm10":27.3,"temp_c":26.1,"rh":48.2},
+    {"ts":"2025-08-22T14:15:00Z","pm1":5.9,"pm25":22.1,"pm10":30.4,"temp_c":26.2,"rh":48.0}
+  ]
+}
+```
+
+* Validate schema, upsert on `(ts,sensor_id)`, return `202 Accepted`.
+* **CORS**: allow your GitHub Pages domain (OPTIONS + headers).
+
+---
+
+## Front End (single-page static app)
+
+### Sections (on **one page**)
+
+1. **“Today’s status” header**
+
+   * Date range picker. Multi-filter **hashtags**.
+   * **3 KPIs**:
+
+     * *PM2.5 median* (µg/m³)
+     * *% of time > 15 µg/m³* (WHO 24‑h guideline)
+     * *Peaks / hour*
+   * Status pills: **OK / Monitor / At risk** (color + icon).
+2. **Day×Hour Heatmap** (Plotly) — median PM2.5 per cell. Tooltip “Tue 14:00 — 22 µg/m³”.
+3. **“Activities → Risk” table**
+   Columns: **Hashtag**, **Hours observed**, **Median**, **P95**, **%>15**, **Peaks/h**, **AUC/h**, **Risk** (OK/⚠️/⛔), **Recommendation** (icons for mask/window/night with tooltip). **Default sort by %>15**.
+4. **Peaks list**
+   Compact rows: **Start–End**, **Duration**, **PM2.5 max**, **Δ vs baseline**, **AUC**, **Tags** (chips). Left severity bar.
+
+### Forms
+
+* **Add activity** (side drawer): *start*, *end*, **hashtags** (multi-select from `tags`), *note*.
+* **CSV import**: parse `activities_example.csv`, insert into `activity_intervals` + `activity_tags`.
+
+### Labeling/Display Rules
+
+* **Risk thresholds**:
+
+  * OK if `%>15 < 15%` and `peaks/h < 0.5`
+  * Monitor otherwise
+  * At risk if `%>15 ≥ 30%` **or** `peaks/h ≥ 1`
+* **Units** always visible (µg/m³, h).
+* **Rounding**: PM2.5 to 0.1; percentages to integers; Peaks/h to 0.1.
+* Display timezone **Europe/Paris** (dayjs.tz). Store **UTC**.
+
+### UI Functions (in `main.js`)
+
+* Create Supabase client (URL + anon key from `config.js`).
+* Load **tags**.
+* Load KPIs & activity table via RPC `summary_by_tag_range(from,to)` (apply tag filters if present).
+* Heatmap: fetch hourly medians by day×hour (either expose a `vw_hourly_medians` or provide an RPC to serve aggregated readings).
+* Peaks list: RPC `peaks_in_range(from,to)` then join tags (or use `vw_peaks_with_tags`).
+* Create activity: insert into `activity_intervals`, then into `activity_tags`.
+* CSV import: transform and bulk insert (handle tags).
+* Error handling (simple toasts), loading states, “Insufficient data” messages.
+
+---
+
+## Computation Method (implement primarily in SQL)
+
+* **Hourly baseline**: PM2.5 median by **hour of day** over **rolling 14 days**; associated **MAD**.
+* **Peak**: `pm25 > max(25, baseline + 2*MAD)` on a 15‑min bin. Merge contiguous bins.
+* **AUC**: sum `(pm25 − baseline) × 15 min`.
+* **Summary by hashtag**: aggregate readings **whose `ts` falls within intervals carrying that tag**; compute: median, p95, `%>15`, `peaks/h`, `AUC/h`.
+* **Matched control**: same metrics **outside any activity**, **at the same hour-of-day** and **day-of-week**.
+
+---
+
+## Accessibility & Design
+
+* **Tailwind** + system font. AA contrast.
+* Status colors: green/amber/red **plus icons** for color-blind accessibility.
+* Readable tables (zebra rows, generous line-height, **tabular numbers**).
+* French labels and tooltips throughout.
+
+---
+
+## Tests & Validation
+
+* `seed.sql` must allow the **UI to work out-of-the-box** (some demo readings, activities, and tags).
+* `README.md` must explain:
+
+  1. create Supabase project, import `schema.sql` then `seed.sql`
+  2. deploy Edge Function `ingest`
+  3. configure `config.js`
+  4. publish on GitHub Pages.
+
+---
+
+**Now generate the full contents of all listed files, each in a separate code block, with complete, runnable code.**
