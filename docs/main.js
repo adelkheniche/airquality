@@ -1,119 +1,234 @@
-// Initialize Day.js with UTC and Timezone plugins (for timezone conversion)
-dayjs.extend(dayjs_plugin_utc);
-dayjs.extend(dayjs_plugin_timezone);
+/* globals supabase, dayjs, Plotly, window, document */
 
-// Alpine.js component state and methods
-function dashboard() {
-  return {
-    // State variables
-    peakCount: 0,
-    peaksPerHour: 0.0,
-    percentOver15: 0.0,
-    peaksPerHourStatus: 'green',
-    percentStatus: 'green',
-    peaksList: [],
-    summaryList: [],
-    startDate: '',
-    endDate: '',
-    // Initialize component: fetch initial data range and default range data
-    async init() {
-      // Create Supabase client (using global config variables from config.js)
-      const { createClient } = supabase;
-      this.supabase = createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-      // Fetch the overall available date range (min and max timestamps)
-      let { data: extent, error: err } = await this.supabase.rpc('readings_extent');
-      if (err) {
-        console.error('Error fetching data extent:', err);
-        return;
-      }
-      if (extent && Array.isArray(extent)) extent = extent[0]; // ensure object
-      // Determine default range: last 7 days or full range if shorter
-      const maxTs = extent.max_ts || extent.max || extent.max_time;
-      const minTs = extent.min_ts || extent.min || extent.min_time;
-      const end = dayjs.utc(maxTs);
-      const start = dayjs.utc(maxTs).subtract(6, 'day');
-      const minData = dayjs.utc(minTs);
-      // If data range is less than 7 days, use full range
-      const finalStart = start.isBefore(minData) ? minData : start;
-      // Set date inputs (in local Paris time, formatted as YYYY-MM-DD)
-      this.startDate = finalStart.tz('Europe/Paris').format('YYYY-MM-DD');
-      this.endDate = end.tz('Europe/Paris').format('YYYY-MM-DD');
-      // Fetch initial data for this range
-      await this.updateData();
-    },
-    // Fetch and update data for the current date range
-    async updateData() {
-      if (!this.supabase) return;
-      // Convert selected date range from local (Europe/Paris) to UTC ISO timestamps
-      const startUtc = new Date(this.startDate + 'T00:00:00').toISOString();
-      const endUtc = new Date(this.endDate + 'T23:59:59').toISOString();
-      // Perform RPC calls to Supabase for KPIs, time series, peaks, and summary
-      const { data: kpiData, error: err1 } = await this.supabase.rpc('kpis_peaks_range', { start_ts: startUtc, end_ts: endUtc });
-      const { data: seriesData, error: err2 } = await this.supabase.rpc('time_series_bucketed', { start_ts: startUtc, end_ts: endUtc });
-      const { data: peaksData, error: err3 } = await this.supabase.rpc('peaks_in_range', { start_ts: startUtc, end_ts: endUtc });
-      const { data: summaryData, error: err4 } = await this.supabase.rpc('summary_by_tag_range', { start_ts: startUtc, end_ts: endUtc });
-      if (err1 || err2 || err3 || err4) {
-        console.error('Erreur lors du chargement des données:', err1 || err2 || err3 || err4);
-        return;
-      }
-      // Update KPI values
-      let kpis = kpiData;
-      if (Array.isArray(kpis)) kpis = kpis[0];
-      if (kpis) {
-        this.peakCount = kpis.total_peaks ?? kpis.peak_count ?? 0;
-        this.peaksPerHour = kpis.peaks_per_hour ?? kpis.peak_per_hour ?? 0;
-        this.percentOver15 = kpis.percent_over_15 ?? kpis.percent_over15 ?? 0;
-      }
-      // Determine status indicators based on thresholds
-      const pph = this.peaksPerHour;
-      const perc = this.percentOver15;
-      this.peaksPerHourStatus = (pph > 2 ? 'red' : pph > 1 ? 'yellow' : 'green');
-      this.percentStatus = (perc > 20 ? 'red' : perc > 10 ? 'yellow' : 'green');
-      // Update time series charts using Plotly
-      const timestamps = seriesData.map(d => d.ts || d.time);
-      // Plot PM1
-      Plotly.newPlot('chart-pm1', [{
-        x: timestamps,
-        y: seriesData.map(d => d.pm1),
-        type: 'scatter',
-        mode: 'lines',
-        line: { color: '#2563EB', width: 2 }
-      }], {
-        title: 'PM1 (µg/m³)',
-        margin: { t: 40, r: 20, b: 40, l: 50 },
-        xaxis: { title: 'Date/Heure' },
-        yaxis: { title: 'µg/m³' }
-      }, { responsive: true });
-      // Plot PM2.5
-      Plotly.newPlot('chart-pm25', [{
-        x: timestamps,
-        y: seriesData.map(d => d.pm25 ?? d.pm2_5),
-        type: 'scatter',
-        mode: 'lines',
-        line: { color: '#7C3AED', width: 2 }
-      }], {
-        title: 'PM2.5 (µg/m³)',
-        margin: { t: 40, r: 20, b: 40, l: 50 },
-        xaxis: { title: 'Date/Heure' },
-        yaxis: { title: 'µg/m³' }
-      }, { responsive: true });
-      // Plot PM10
-      Plotly.newPlot('chart-pm10', [{
-        x: timestamps,
-        y: seriesData.map(d => d.pm10),
-        type: 'scatter',
-        mode: 'lines',
-        line: { color: '#CA8A04', width: 2 }
-      }], {
-        title: 'PM10 (µg/m³)',
-        margin: { t: 40, r: 20, b: 40, l: 50 },
-        xaxis: { title: 'Date/Heure' },
-        yaxis: { title: 'µg/m³' }
-      }, { responsive: true });
-      // Update peaks list (array of peak events)
-      this.peaksList = Array.isArray(peaksData) ? peaksData : (peaksData ? [peaksData] : []);
-      // Update activities summary list (array of tag summaries)
-      this.summaryList = Array.isArray(summaryData) ? summaryData : (summaryData ? [summaryData] : []);
-    }
-  }
+const COLORS = {
+  pm25: '#DC2626', // rouge principal
+  pm10: '#2563EB', // bleu
+  pm1:  '#7C3AED', // violet pour distinguer visuellement la 3e trace
+  grid: '#E5E7EB',
+  text: '#0B0B0C'
+};
+
+const WHO_LINE = 15; // µg/m³
+
+const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
+
+async function readingsExtent() {
+  const { data, error } = await sb.rpc('readings_extent');
+  if (error) throw error;
+  // Supabase renvoie un array d'une ligne { min_ts, max_ts }
+  const row = Array.isArray(data) ? data[0] : data;
+  return { min: row.min_ts, max: row.max_ts };
 }
+
+async function series(startISO, endISO) {
+  const { data, error } = await sb.rpc('time_series_bucketed', {
+    start_ts: startISO, end_ts: endISO
+  });
+  if (error) throw error;
+  return data || [];
+}
+
+async function kpis(startISO, endISO) {
+  const { data, error } = await sb.rpc('kpis_peaks_range', {
+    start_ts: startISO, end_ts: endISO
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    total: row?.total_peaks ?? 0,
+    pph:   row?.peaks_per_hour ?? 0,
+    pct:   row?.percent_over15 ?? 0
+  };
+}
+
+async function peaksList(startISO, endISO) {
+  const { data, error } = await sb.rpc('peaks_in_range', {
+    start_ts: startISO, end_ts: endISO
+  });
+  if (error) throw error;
+  return data || [];
+}
+
+async function summaryByTag(startISO, endISO) {
+  const { data, error } = await sb.rpc('summary_by_tag_range', {
+    start_ts: startISO, end_ts: endISO
+  });
+  if (error) throw error;
+  return data || [];
+}
+
+/* ---------- helpers ---------- */
+
+function toParisISO(d) {
+  // d = JS Date or ISO; we just pass through, RPC expects UTC ISO. 
+  // Inputs are already in local -> we create ISO UTC from date inputs.
+  return new Date(d).toISOString();
+}
+
+function setKpiPills(pph, pct) {
+  const pphPill = document.getElementById('kpi-pph-pill');
+  const pctPill = document.getElementById('kpi-pct-pill');
+
+  if (pph > 2) { pphPill.className = 'badge risk'; pphPill.textContent = 'À risque'; }
+  else if (pph > 1) { pphPill.className = 'badge warn'; pphPill.textContent = 'À surveiller'; }
+  else { pphPill.className = 'badge ok'; pphPill.textContent = 'OK'; }
+
+  if (pct > 20) { pctPill.className = 'badge risk'; pctPill.textContent = 'À risque'; }
+  else if (pct > 10) { pctPill.className = 'badge warn'; pctPill.textContent = 'À surveiller'; }
+  else { pctPill.className = 'badge ok'; pctPill.textContent = 'OK'; }
+}
+
+function chip(text) {
+  const el = document.createElement('span');
+  el.className = 'chip';
+  el.textContent = text;
+  return el;
+}
+
+function renderSummary(id, serie) {
+  const wrap = document.getElementById(id);
+  wrap.innerHTML = '';
+  if (!serie.length) {
+    wrap.appendChild(chip('Données insuffisantes'));
+    return;
+  }
+  const above = serie.filter(r => (r.pm25 ?? 0) > WHO_LINE).length;
+  const max25 = Math.max(...serie.map(r => r.pm25 ?? 0));
+  wrap.appendChild(chip(`Pics (PM2.5>15) : ${above}`));
+  wrap.appendChild(chip(`Max PM2.5 : ${max25.toFixed(1)} µg/m³`));
+}
+
+function plotOne(containerId, serie, title) {
+  const x = serie.map(r => r.ts || r.t || r.time || r.date || r['ts']);
+  const y1 = serie.map(r => r.pm1  ?? null);
+  const y25= serie.map(r => r.pm25 ?? null);
+  const y10= serie.map(r => r.pm10 ?? null);
+
+  const traces = [
+    { name:'PM2.5', x, y: y25, mode:'lines', type:'scatter', line:{ width:2, color:COLORS.pm25 } },
+    { name:'PM10',  x, y: y10, mode:'lines', type:'scatter', line:{ width:2, color:COLORS.pm10 } },
+    { name:'PM1',   x, y: y1,  mode:'lines', type:'scatter', line:{ width:2, color:COLORS.pm1  } },
+  ];
+
+  const ymax = Math.max(
+    20,
+    ...y1.filter(v=>v!=null),
+    ...y25.filter(v=>v!=null),
+    ...y10.filter(v=>v!=null)
+  );
+
+  const layout = {
+    title: { text:title, font:{ size:14 } },
+    margin:{ t:36, r:24, b:36, l:48 },
+    xaxis:{ showgrid:true, gridcolor:COLORS.grid },
+    yaxis:{ showgrid:true, gridcolor:COLORS.grid, title:'µg/m³', rangemode:'tozero' },
+    legend:{ orientation:'h', x:1, xanchor:'right', y:1.15 },
+    shapes: [
+      { type:'line', xref:'paper', x0:0, x1:1, y0:WHO_LINE, y1:WHO_LINE,
+        line:{ dash:'dash', width:1, color:'#6B7280' } },
+      { type:'rect', xref:'paper', x0:0, x1:1, y0:WHO_LINE, y1:ymax,
+        fillcolor:'#DC2626', opacity:0.06, line:{ width:0 } }
+    ]
+  };
+
+  Plotly.newPlot(containerId, traces, layout, { displaylogo:false, responsive:true });
+}
+
+/* ---------- main flow ---------- */
+
+async function loadAll() {
+  // 1) plage par défaut = aujourd’hui locale
+  const tz = 'Europe/Paris';
+  const extent = await readingsExtent();
+  const endMax = dayjs.utc(extent.max);
+  const startDefault = endMax.subtract(7, 'day');
+
+  // champs date (Paris)
+  const $from = document.getElementById('from');
+  const $to = document.getElementById('to');
+  $from.value = startDefault.tz(tz).format('YYYY-MM-DD');
+  $to.value = endMax.tz(tz).format('YYYY-MM-DD');
+
+  // handler
+  document.getElementById('apply').onclick = () => reloadForInputs();
+  document.getElementById('reset').onclick = () => {
+    $from.value = startDefault.tz(tz).format('YYYY-MM-DD');
+    $to.value = endMax.tz(tz).format('YYYY-MM-DD');
+    reloadForInputs();
+  };
+
+  await reloadForInputs();
+}
+
+async function reloadForInputs() {
+  const tz = 'Europe/Paris';
+  const f = document.getElementById('from').value;
+  const t = document.getElementById('to').value;
+  const startISO = dayjs.tz(`${f} 00:00`, tz).utc().toISOString();
+  const endISO   = dayjs.tz(`${t} 23:59`, tz).utc().toISOString();
+
+  // KPIs
+  const k = await kpis(startISO, endISO);
+  document.getElementById('kpi-peaks').textContent = k.total.toString();
+  document.getElementById('kpi-pph').textContent   = (k.pph ?? 0).toFixed(1);
+  document.getElementById('kpi-pct').textContent   = (k.pct ?? 0).toFixed(0) + '%';
+  setKpiPills(k.pph ?? 0, k.pct ?? 0);
+
+  // Séries pour 4 fenêtres (on réutilise l’agrégat horaire simple)
+  const nowUtc = dayjs.utc();
+  const s24 = await series(nowUtc.subtract(24,'hour').toISOString(), nowUtc.toISOString());
+  const s7  = await series(nowUtc.subtract(7,'day').toISOString(),   nowUtc.toISOString());
+  const s30 = await series(nowUtc.subtract(30,'day').toISOString(),  nowUtc.toISOString());
+
+  // All time = extent
+  const ext = await readingsExtent();
+  const sall = await series(ext.min, ext.max);
+
+  renderSummary('sum-24h', s24);
+  renderSummary('sum-7d',  s7);
+  renderSummary('sum-30d', s30);
+  renderSummary('sum-all', sall);
+
+  plotOne('chart-24h', s24, 'PM1 / PM2.5 / PM10 — 24 h');
+  plotOne('chart-7d',  s7,  'PM1 / PM2.5 / PM10 — 7 j');
+  plotOne('chart-30d', s30, 'PM1 / PM2.5 / PM10 — 30 j');
+  plotOne('chart-all', sall,'PM1 / PM2.5 / PM10 — historique');
+
+  // Table activités
+  const sum = await summaryByTag(startISO, endISO);
+  const tbody = document.getElementById('tbl-acts');
+  tbody.innerHTML = '';
+  sum.sort((a,b)=>( (b.peaks/(b.duration||1)) - (a.peaks/(a.duration||1)) ));
+  sum.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="py-2 pr-4">${r.tag}</td>
+      <td class="py-2 px-4 text-right tabular-nums">${(r.duration||0).toFixed(1)}</td>
+      <td class="py-2 px-4 text-right tabular-nums">${r.peaks||0}</td>
+      <td class="py-2 pl-4 text-right tabular-nums">${( (r.peaks||0) / (r.duration||1) ).toFixed(1)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Liste des pics
+  const peaks = await peaksList(startISO, endISO);
+  const ul = document.getElementById('list-peaks');
+  ul.innerHTML = '';
+  peaks.forEach(p=>{
+    const li = document.createElement('li');
+    const when = dayjs.utc(p.ts).tz(tz).format('DD/MM/YYYY HH:mm');
+    li.innerHTML = `
+      <div class="flex items-center gap-2">
+        <span class="inline-block w-1.5 h-4 rounded bg-[${COLORS.pm25}]"></span>
+        <span class="tabular-nums">${when}</span>
+        <span class="ml-auto font-medium tabular-nums">${(p.value||0).toFixed(1)} µg/m³</span>
+      </div>`;
+    ul.appendChild(li);
+  });
+}
+
+// kick
+loadAll().catch(err=>{
+  console.error(err);
+  alert('Erreur de chargement des données. Vérifiez vos RPC/permissions.');
+});
