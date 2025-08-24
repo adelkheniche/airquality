@@ -1,131 +1,146 @@
 <!DOCTYPE html>
 <html lang="fr" class="h-full">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Qualité de l’air – Atelier Céramique</title>
-  <!-- Tailwind CSS via CDN -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Qualité de l’air — Atelier</title>
+
+  <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Stylesheet with design tokens -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              red:   '#DC2626',  /* primaire */
+              blue:  '#2563EB',
+              green: '#16A34A',
+              yellow:'#CA8A04',
+              violet:'#7C3AED'
+            },
+            ink: '#0B0B0C',
+            line:'#E5E7EB'
+          },
+          borderRadius: { 'xl2': '1rem', 'xl3': '1.25rem' }
+        }
+      }
+    }
+  </script>
+
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="h-full bg-violet-50" x-data="dashboard()">
-  <!-- Header with title and date range filters -->
-  <header class="max-w-7xl mx-auto p-4 flex justify-between items-center">
-    <h1 class="text-xl font-bold text-gray-800">Qualité de l’air – Atelier Céramique</h1>
-    <div class="space-x-2 text-sm">
-      <input type="date" x-model="startDate" @change="updateData()" class="border border-gray-300 rounded px-2 py-1" />
-      <span class="text-gray-600">–</span>
-      <input type="date" x-model="endDate" @change="updateData()" class="border border-gray-300 rounded px-2 py-1" />
+<body class="min-h-screen bg-[#F4F1FF]"> <!-- fond lavande très clair, look maquette -->
+
+  <!-- Header -->
+  <header class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="h-9 w-9 rounded-2xl bg-brand-red/90 grid place-items-center text-white font-bold">AQ</div>
+      <h1 class="text-xl font-semibold text-ink">Tableau de bord — Qualité de l’air</h1>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div class="text-sm text-gray-600">Période</div>
+      <input id="from" type="date" class="tw-input" />
+      <span class="text-gray-500">–</span>
+      <input id="to" type="date" class="tw-input" />
+      <button id="apply" class="tw-btn-primary">Appliquer</button>
+      <button id="reset" class="tw-btn-outline">Réinitialiser</button>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 pb-8 space-y-8">
-    <!-- KPI Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <!-- Card: Total Peaks -->
-      <div class="bg-white rounded-lg shadow p-4 flex flex-col">
-        <div class="text-3xl font-bold text-gray-800" x-text="peakCount"></div>
-        <div class="text-sm text-gray-600">Nombre de pics</div>
-      </div>
-      <!-- Card: Peaks per Hour with status icon -->
-      <div class="bg-white rounded-lg shadow p-4 flex flex-col">
-        <div class="flex items-center space-x-2">
-          <span class="text-3xl font-bold text-gray-800" x-text="peaksPerHour.toFixed(1)"></span>
-          <!-- Status icons for peaks/hour (green=good, yellow=warn, red=alert) -->
-          <svg x-show="peaksPerHourStatus === 'green'" class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <svg x-show="peaksPerHourStatus === 'yellow'" class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <svg x-show="peaksPerHourStatus === 'red'" class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <div class="text-sm text-gray-600">Pics par heure</div>
-      </div>
-      <!-- Card: % Time > 15µg with status icon -->
-      <div class="bg-white rounded-lg shadow p-4 flex flex-col">
-        <div class="flex items-center space-x-2">
-          <span class="text-3xl font-bold text-gray-800" x-text="percentOver15.toFixed(1) + '%'"></span>
-          <!-- Status icons for %>15µg (green=good, yellow=warn, red=alert) -->
-          <svg x-show="percentStatus === 'green'" class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <svg x-show="percentStatus === 'yellow'" class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <svg x-show="percentStatus === 'red'" class="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <div class="text-sm text-gray-600">% du temps &gt; 15 µg/m³</div>
-      </div>
-    </div>
+  <main class="max-w-7xl mx-auto px-4 pb-12 space-y-8">
 
-    <!-- Charts Section: PM1, PM2.5, PM10 time series -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-      <div class="bg-white rounded-lg shadow p-2">
-        <div id="chart-pm1" class="w-full h-64"></div>
+    <!-- KPIs (placeholder simples, on garde la logique en place) -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="card">
+        <div class="text-sm text-gray-600 mb-1">Pics détectés</div>
+        <div id="kpi-peaks" class="text-3xl font-semibold tabular-nums text-ink">–</div>
       </div>
-      <div class="bg-white rounded-lg shadow p-2">
-        <div id="chart-pm25" class="w-full h-64"></div>
+      <div class="card">
+        <div class="text-sm text-gray-600 mb-1">Pics / heure</div>
+        <div class="flex items-center gap-2">
+          <div id="kpi-pph" class="text-3xl font-semibold tabular-nums text-ink">–</div>
+          <span id="kpi-pph-pill" class="badge">—</span>
+        </div>
       </div>
-      <div class="bg-white rounded-lg shadow p-2">
-        <div id="chart-pm10" class="w-full h-64"></div>
+      <div class="card">
+        <div class="text-sm text-gray-600 mb-1">% du temps &gt; 15 µg/m³</div>
+        <div class="flex items-center gap-2">
+          <div id="kpi-pct" class="text-3xl font-semibold tabular-nums text-ink">–</div>
+          <span id="kpi-pct-pill" class="badge">—</span>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Activities summary table and Peaks list -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <!-- Activities Table -->
-      <div class="bg-white rounded-lg shadow p-4 overflow-x-auto">
-        <h3 class="text-base font-semibold text-gray-800 mb-2">Activités</h3>
-        <table class="min-w-full table-zebra text-sm text-gray-800">
-          <thead>
-            <tr class="border-b border-gray-200">
-              <th class="pb-1 text-left">Activité</th>
-              <th class="pb-1 text-right">Durée (h)</th>
-              <th class="pb-1 text-right">Pics</th>
-              <th class="pb-1 text-right">Pics/h</th>
+    <!-- Trends (4 cartes, 3 valeurs par chart) -->
+    <section class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div class="card">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="section-title">Aujourd’hui (24 h)</h2>
+          <div class="summary-pills" id="sum-24h"></div>
+        </div>
+        <div id="chart-24h" class="h-72"></div>
+      </div>
+
+      <div class="card">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="section-title">7 derniers jours</h2>
+          <div class="summary-pills" id="sum-7d"></div>
+        </div>
+        <div id="chart-7d" class="h-72"></div>
+      </div>
+
+      <div class="card">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="section-title">30 derniers jours</h2>
+          <div class="summary-pills" id="sum-30d"></div>
+        </div>
+        <div id="chart-30d" class="h-72"></div>
+      </div>
+
+      <div class="card">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="section-title">Depuis le début</h2>
+          <div class="summary-pills" id="sum-all"></div>
+        </div>
+        <div id="chart-all" class="h-72"></div>
+      </div>
+    </section>
+
+    <!-- Table + Pics (structure légère) -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="card overflow-x-auto">
+        <h3 class="section-title mb-3">Activités → Risque</h3>
+        <table class="min-w-full table-zebra text-sm">
+          <thead class="sticky top-0 bg-white">
+            <tr class="text-left text-gray-500">
+              <th class="py-2 pr-4">Hashtag</th>
+              <th class="py-2 px-4 text-right">Heures</th>
+              <th class="py-2 px-4 text-right">Pics</th>
+              <th class="py-2 pl-4 text-right">Pics/h</th>
             </tr>
           </thead>
-          <tbody>
-            <template x-for="row in summaryList" :key="row.tag">
-              <tr>
-                <td class="py-1 pr-3" x-text="row.tag"></td>
-                <td class="py-1 px-3 text-right tabular-nums" x-text="row.duration.toFixed(1)"></td>
-                <td class="py-1 px-3 text-right tabular-nums" x-text="row.peaks"></td>
-                <td class="py-1 pl-3 text-right tabular-nums" x-text="(row.peaks / row.duration).toFixed(1)"></td>
-              </tr>
-            </template>
-          </tbody>
+          <tbody id="tbl-acts"></tbody>
         </table>
       </div>
-      <!-- Peaks List -->
-      <div class="bg-white rounded-lg shadow p-4">
-        <h3 class="text-base font-semibold text-gray-800 mb-2">Pics détectés</h3>
-        <ul class="text-sm text-gray-800 list-disc list-inside space-y-1">
-          <template x-for="p in peaksList" :key="p.ts">
-            <li>
-              <span x-text="dayjs.utc(p.ts).tz('Europe/Paris').format('DD/MM/YYYY HH:mm')"></span>
-              – 
-              <span x-text="p.value.toFixed(1) + ' µg/m³'"></span>
-            </li>
-          </template>
-        </ul>
+
+      <div class="card">
+        <h3 class="section-title mb-3">Pics détectés</h3>
+        <ul id="list-peaks" class="space-y-2 text-sm"></ul>
       </div>
-    </div>
+    </section>
   </main>
 
-  <!-- Scripts: Supabase, Day.js, Plotly, Alpine, Config, Main -->
+  <!-- Libs -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.7/dayjs.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.7/plugin/utc.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.7/plugin/timezone.js"></script>
-  <script src="https://cdn.plot.ly/plotly-2.18.2.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.12.0/dist/cdn.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/dayjs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/utc.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs@1.11.10/plugin/timezone.js"></script>
+  <script>dayjs.extend(dayjs_plugin_utc); dayjs.extend(dayjs_plugin_timezone);</script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+
+  <!-- Config + App -->
   <script src="config.js"></script>
   <script src="main.js"></script>
 </body>
