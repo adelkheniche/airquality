@@ -105,9 +105,9 @@ function plotOne(containerId, serie, title) {
   const y10= serie.map(r => r.pm10 ?? null);
 
   const traces = [
-    { name:'PM2.5', x, y: y25, mode:'lines', type:'scatter', line:{ width:2, color:COLORS.pm25 } },
-    { name:'PM10',  x, y: y10, mode:'lines', type:'scatter', line:{ width:2, color:COLORS.pm10 } },
-    { name:'PM1',   x, y: y1,  mode:'lines', type:'scatter', line:{ width:2, color:COLORS.pm1  } },
+    { name:'PM2.5', x, y: y25, mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm25 } },
+    { name:'PM10',  x, y: y10, mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm10 } },
+    { name:'PM1',   x, y: y1,  mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm1  } },
   ];
 
   const ymax = Math.max(
@@ -198,7 +198,7 @@ async function reloadForInputs() {
   renderSummary('sum-30d', s30);
   renderSummary('sum-all', sall);
 
-  plotOne('chart-24h', s24, 'PM1 / PM2.5 / PM10 — 24 h');
+  plotOne('chart-24h', s24, '24h');
   plotOne('chart-7d',  s7,  'PM1 / PM2.5 / PM10 — 7 j');
   plotOne('chart-30d', s30, 'PM1 / PM2.5 / PM10 — 30 j');
   plotOne('chart-all', sall,'PM1 / PM2.5 / PM10 — historique');
