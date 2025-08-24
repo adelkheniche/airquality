@@ -1,49 +1,67 @@
-/* Design Tokens and Custom Styles */
-
-/* Color palette (Tailwind default 600 shades) */
-:root {
-  --color-red: #DC2626;
-  --color-blue: #2563EB;
-  --color-green: #16A34A;
-  --color-yellow: #CA8A04;
-  --color-violet: #7C3AED;
+:root{
+  --brand-red:#DC2626;  /* couleur maîtresse (remplace le violet) */
+  --brand-blue:#2563EB;
+  --brand-green:#16A34A;
+  --brand-yellow:#CA8A04;
+  --ink:#0B0B0C;
+  --line:#E5E7EB;
+  --card:#FFFFFF;
 }
 
-/* Typography */
-body {
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-  line-height: 1.5;
-  color: #1F2937; /* gray-800 text */
+body{ color:var(--ink); font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif; }
+.tabular-nums{ font-variant-numeric: tabular-nums; font-feature-settings:"tnum"; }
+
+.card{
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:1rem;
+  box-shadow:0 1px 2px rgba(0,0,0,.04);
+  padding:1rem;
 }
 
-/* Ensure numeric text uses tabular (fixed-width) digits for alignment */
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
+.section-title{ font-weight:600; color:var(--ink); }
+
+.tw-input{
+  border:1px solid var(--line);
+  background:#fff;
+  padding:.4rem .6rem;
+  border-radius:.6rem;
+  font-size:.875rem;
+}
+.tw-input:focus{ outline:2px solid var(--brand-blue); outline-offset:0; }
+
+.tw-btn-primary{
+  background:var(--brand-red);
+  color:#fff;
+  padding:.45rem .8rem;
+  border-radius:.7rem;
+  font-weight:600;
+}
+.tw-btn-primary:hover{ filter:brightness(.95); }
+
+.tw-btn-outline{
+  border:1px solid var(--brand-red);
+  color:var(--brand-red);
+  padding:.45rem .8rem;
+  border-radius:.7rem;
+  font-weight:600;
+  background:#fff;
 }
 
-/* Table zebra striping */
-.table-zebra tbody tr:nth-child(even) {
-  background-color: #F9FAFB; /* gray-50 */
+.badge{
+  display:inline-flex; align-items:center; gap:.35rem;
+  padding:.15rem .5rem; border-radius:999px; font-size:.75rem; font-weight:700;
+  border:1px solid var(--line); background:#F9FAFB; color:#374151;
 }
+.badge.ok{ background:#DCFCE7; color:#065F46; border-color:#BBF7D0; }      /* vert */
+.badge.warn{ background:#FEF3C7; color:#92400E; border-color:#FDE68A; }    /* jaune */
+.badge.risk{ background:#FEE2E2; color:#991B1B; border-color:#FECACA; }    /* rouge */
 
-/* Badge styles for status indicators or labels */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 9999px;
-}
-.badge-green {
-  background-color: #D1FAE5; /* green-100 */
-  color: #065F46; /* green-800 */
-}
-.badge-yellow {
-  background-color: #FEF3C7; /* yellow-100 */
-  color: #92400E; /* yellow-800 */
-}
-.badge-red {
-  background-color: #FEE2E2; /* red-100 */
-  color: #991B1B; /* red-800 */
+.table-zebra tbody tr:nth-child(even){ background:#FAFAFF; }
+
+/* petites puces sous les titres */
+.summary-pills{ display:flex; gap:.4rem; flex-wrap:wrap; }
+.summary-pills .chip{
+  font-size:.72rem; font-weight:600; border:1px solid var(--line);
+  padding:.2rem .5rem; border-radius:999px; background:#fff;
 }
