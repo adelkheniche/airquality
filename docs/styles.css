@@ -1,49 +1,234 @@
-/* Design Tokens and Custom Styles */
+/* globals supabase, dayjs, Plotly, window, document */
 
-/* Color palette (Tailwind default 600 shades) */
-:root {
-  --color-red: #DC2626;
-  --color-blue: #2563EB;
-  --color-green: #16A34A;
-  --color-yellow: #CA8A04;
-  --color-violet: #7C3AED;
-}
+const COLORS = {
+  pm25: '#DC2626', // rouge principal
+  pm10: '#2563EB', // bleu
+  pm1:  '#7C3AED', // violet pour distinguer visuellement la 3e trace
+  grid: '#E5E7EB',
+  text: '#0B0B0C'
+};
 
-/* Typography */
-body {
-  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
-  line-height: 1.5;
-  color: #1F2937; /* gray-800 text */
-}
+const WHO_LINE = 15; // µg/m³
 
-/* Ensure numeric text uses tabular (fixed-width) digits for alignment */
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
-}
+const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 
-/* Table zebra striping */
-.table-zebra tbody tr:nth-child(even) {
-  background-color: #F9FAFB; /* gray-50 */
+async function readingsExtent() {
+  const { data, error } = await sb.rpc('readings_extent');
+  if (error) throw error;
+  // Supabase renvoie un array d'une ligne { min_ts, max_ts }
+  const row = Array.isArray(data) ? data[0] : data;
+  return { min: row.min_ts, max: row.max_ts };
 }
 
-/* Badge styles for status indicators or labels */
-.badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  border-radius: 9999px;
+async function series(startISO, endISO) {
+  const { data, error } = await sb.rpc('time_series_bucketed', {
+    start_ts: startISO, end_ts: endISO
+  });
+  if (error) throw error;
+  return data || [];
 }
-.badge-green {
-  background-color: #D1FAE5; /* green-100 */
-  color: #065F46; /* green-800 */
+
+async function kpis(startISO, endISO) {
+  const { data, error } = await sb.rpc('kpis_peaks_range', {
+    start_ts: startISO, end_ts: endISO
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  return {
+    total: row?.total_peaks ?? 0,
+    pph:   row?.peaks_per_hour ?? 0,
+    pct:   row?.percent_over15 ?? 0
+  };
 }
-.badge-yellow {
-  background-color: #FEF3C7; /* yellow-100 */
-  color: #92400E; /* yellow-800 */
+
+async function peaksList(startISO, endISO) {
+  const { data, error } = await sb.rpc('peaks_in_range', {
+    start_ts: startISO, end_ts: endISO
+  });
+  if (error) throw error;
+  return data || [];
 }
-.badge-red {
-  background-color: #FEE2E2; /* red-100 */
-  color: #991B1B; /* red-800 */
+
+async function summaryByTag(startISO, endISO) {
+  const { data, error } = await sb.rpc('summary_by_tag_range', {
+    start_ts: startISO, end_ts: endISO
+  });
+  if (error) throw error;
+  return data || [];
 }
+
+/* ---------- helpers ---------- */
+
+function toParisISO(d) {
+  // d = JS Date or ISO; we just pass through, RPC expects UTC ISO. 
+  // Inputs are already in local -> we create ISO UTC from date inputs.
+  return new Date(d).toISOString();
+}
+
+function setKpiPills(pph, pct) {
+  const pphPill = document.getElementById('kpi-pph-pill');
+  const pctPill = document.getElementById('kpi-pct-pill');
+
+  if (pph > 2) { pphPill.className = 'badge risk'; pphPill.textContent = 'À risque'; }
+  else if (pph > 1) { pphPill.className = 'badge warn'; pphPill.textContent = 'À surveiller'; }
+  else { pphPill.className = 'badge ok'; pphPill.textContent = 'OK'; }
+
+  if (pct > 20) { pctPill.className = 'badge risk'; pctPill.textContent = 'À risque'; }
+  else if (pct > 10) { pctPill.className = 'badge warn'; pctPill.textContent = 'À surveiller'; }
+  else { pctPill.className = 'badge ok'; pctPill.textContent = 'OK'; }
+}
+
+function chip(text) {
+  const el = document.createElement('span');
+  el.className = 'chip';
+  el.textContent = text;
+  return el;
+}
+
+function renderSummary(id, serie) {
+  const wrap = document.getElementById(id);
+  wrap.innerHTML = '';
+  if (!serie.length) {
+    wrap.appendChild(chip('Données insuffisantes'));
+    return;
+  }
+  const above = serie.filter(r => (r.pm25 ?? 0) > WHO_LINE).length;
+  const max25 = Math.max(...serie.map(r => r.pm25 ?? 0));
+  wrap.appendChild(chip(`Pics (PM2.5>15) : ${above}`));
+  wrap.appendChild(chip(`Max PM2.5 : ${max25.toFixed(1)} µg/m³`));
+}
+
+function plotOne(containerId, serie, title) {
+  const x = serie.map(r => r.ts || r.t || r.time || r.date || r['ts']);
+  const y1 = serie.map(r => r.pm1  ?? null);
+  const y25= serie.map(r => r.pm25 ?? null);
+  const y10= serie.map(r => r.pm10 ?? null);
+
+  const traces = [
+    { name:'PM2.5', x, y: y25, mode:'lines', type:'scatter', line:{ width:2, color:COLORS.pm25 } },
+    { name:'PM10',  x, y: y10, mode:'lines', type:'scatter', line:{ width:2, color:COLORS.pm10 } },
+    { name:'PM1',   x, y: y1,  mode:'lines', type:'scatter', line:{ width:2, color:COLORS.pm1  } },
+  ];
+
+  const ymax = Math.max(
+    20,
+    ...y1.filter(v=>v!=null),
+    ...y25.filter(v=>v!=null),
+    ...y10.filter(v=>v!=null)
+  );
+
+  const layout = {
+    title: { text:title, font:{ size:14 } },
+    margin:{ t:36, r:24, b:36, l:48 },
+    xaxis:{ showgrid:true, gridcolor:COLORS.grid },
+    yaxis:{ showgrid:true, gridcolor:COLORS.grid, title:'µg/m³', rangemode:'tozero' },
+    legend:{ orientation:'h', x:1, xanchor:'right', y:1.15 },
+    shapes: [
+      { type:'line', xref:'paper', x0:0, x1:1, y0:WHO_LINE, y1:WHO_LINE,
+        line:{ dash:'dash', width:1, color:'#6B7280' } },
+      { type:'rect', xref:'paper', x0:0, x1:1, y0:WHO_LINE, y1:ymax,
+        fillcolor:'#DC2626', opacity:0.06, line:{ width:0 } }
+    ]
+  };
+
+  Plotly.newPlot(containerId, traces, layout, { displaylogo:false, responsive:true });
+}
+
+/* ---------- main flow ---------- */
+
+async function loadAll() {
+  // 1) plage par défaut = aujourd’hui locale
+  const tz = 'Europe/Paris';
+  const extent = await readingsExtent();
+  const endMax = dayjs.utc(extent.max);
+  const startDefault = endMax.subtract(7, 'day');
+
+  // champs date (Paris)
+  const $from = document.getElementById('from');
+  const $to = document.getElementById('to');
+  $from.value = startDefault.tz(tz).format('YYYY-MM-DD');
+  $to.value = endMax.tz(tz).format('YYYY-MM-DD');
+
+  // handler
+  document.getElementById('apply').onclick = () => reloadForInputs();
+  document.getElementById('reset').onclick = () => {
+    $from.value = startDefault.tz(tz).format('YYYY-MM-DD');
+    $to.value = endMax.tz(tz).format('YYYY-MM-DD');
+    reloadForInputs();
+  };
+
+  await reloadForInputs();
+}
+
+async function reloadForInputs() {
+  const tz = 'Europe/Paris';
+  const f = document.getElementById('from').value;
+  const t = document.getElementById('to').value;
+  const startISO = dayjs.tz(`${f} 00:00`, tz).utc().toISOString();
+  const endISO   = dayjs.tz(`${t} 23:59`, tz).utc().toISOString();
+
+  // KPIs
+  const k = await kpis(startISO, endISO);
+  document.getElementById('kpi-peaks').textContent = k.total.toString();
+  document.getElementById('kpi-pph').textContent   = (k.pph ?? 0).toFixed(1);
+  document.getElementById('kpi-pct').textContent   = (k.pct ?? 0).toFixed(0) + '%';
+  setKpiPills(k.pph ?? 0, k.pct ?? 0);
+
+  // Séries pour 4 fenêtres (on réutilise l’agrégat horaire simple)
+  const nowUtc = dayjs.utc();
+  const s24 = await series(nowUtc.subtract(24,'hour').toISOString(), nowUtc.toISOString());
+  const s7  = await series(nowUtc.subtract(7,'day').toISOString(),   nowUtc.toISOString());
+  const s30 = await series(nowUtc.subtract(30,'day').toISOString(),  nowUtc.toISOString());
+
+  // All time = extent
+  const ext = await readingsExtent();
+  const sall = await series(ext.min, ext.max);
+
+  renderSummary('sum-24h', s24);
+  renderSummary('sum-7d',  s7);
+  renderSummary('sum-30d', s30);
+  renderSummary('sum-all', sall);
+
+  plotOne('chart-24h', s24, 'PM1 / PM2.5 / PM10 — 24 h');
+  plotOne('chart-7d',  s7,  'PM1 / PM2.5 / PM10 — 7 j');
+  plotOne('chart-30d', s30, 'PM1 / PM2.5 / PM10 — 30 j');
+  plotOne('chart-all', sall,'PM1 / PM2.5 / PM10 — historique');
+
+  // Table activités
+  const sum = await summaryByTag(startISO, endISO);
+  const tbody = document.getElementById('tbl-acts');
+  tbody.innerHTML = '';
+  sum.sort((a,b)=>( (b.peaks/(b.duration||1)) - (a.peaks/(a.duration||1)) ));
+  sum.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="py-2 pr-4">${r.tag}</td>
+      <td class="py-2 px-4 text-right tabular-nums">${(r.duration||0).toFixed(1)}</td>
+      <td class="py-2 px-4 text-right tabular-nums">${r.peaks||0}</td>
+      <td class="py-2 pl-4 text-right tabular-nums">${( (r.peaks||0) / (r.duration||1) ).toFixed(1)}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Liste des pics
+  const peaks = await peaksList(startISO, endISO);
+  const ul = document.getElementById('list-peaks');
+  ul.innerHTML = '';
+  peaks.forEach(p=>{
+    const li = document.createElement('li');
+    const when = dayjs.utc(p.ts).tz(tz).format('DD/MM/YYYY HH:mm');
+    li.innerHTML = `
+      <div class="flex items-center gap-2">
+        <span class="inline-block w-1.5 h-4 rounded bg-[${COLORS.pm25}]"></span>
+        <span class="tabular-nums">${when}</span>
+        <span class="ml-auto font-medium tabular-nums">${(p.value||0).toFixed(1)} µg/m³</span>
+      </div>`;
+    ul.appendChild(li);
+  });
+}
+
+// kick
+loadAll().catch(err=>{
+  console.error(err);
+  alert('Erreur de chargement des données. Vérifiez vos RPC/permissions.');
+});
