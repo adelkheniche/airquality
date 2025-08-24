@@ -119,10 +119,10 @@ function plotOne(containerId, serie, title) {
 
   const layout = {
     title: { text:title, font:{ size:14 } },
-    margin:{ t:36, r:24, b:36, l:48 },
+    margin:{ t:48, r:24, b:36, l:48 },
     xaxis:{ showgrid:true, gridcolor:COLORS.grid },
     yaxis:{ showgrid:true, gridcolor:COLORS.grid, title:'µg/m³', rangemode:'tozero' },
-    legend:{ orientation:'h', x:1, xanchor:'right', y:1.15 },
+    legend:{ orientation:'h', x:0, xanchor:'left', y:1.2 },
     shapes: [
       { type:'line', xref:'paper', x0:0, x1:1, y0:WHO_LINE, y1:WHO_LINE,
         line:{ dash:'dash', width:1, color:'#6B7280' } },
@@ -131,7 +131,16 @@ function plotOne(containerId, serie, title) {
     ]
   };
 
-  Plotly.newPlot(containerId, traces, layout, { displaylogo:false, responsive:true });
+  const config = {
+    displaylogo:false,
+    responsive:true,
+    modeBarButtons:[
+      ['zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d', 'resetScale2d']
+    ],
+    scrollZoom:true
+  };
+
+  Plotly.newPlot(containerId, traces, layout, config);
 }
 
 /* ---------- main flow ---------- */
