@@ -140,7 +140,10 @@ function plotOne(containerId, serie, title) {
     scrollZoom:true
   };
 
-  Plotly.newPlot(containerId, traces, layout, config);
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  Plotly.react(container, traces, layout, config);
 }
 
 /* ---------- main flow ---------- */
