@@ -13,12 +13,6 @@ const dataHistory = {
   press: []
 };
 
-// CO₂ threshold based on European health recommendation (ppm)
-const co2Threshold = 1000;
-
-// Global chart instance for CO₂ line chart
-let co2Chart;
-
 // Color mapping for each sparkline (matching Tailwind accent colors used)
 const sparklineColors = {
   aqi: "#ef4444", // red-500
@@ -86,66 +80,10 @@ function updateUI(latest) {
   if (latest.co2 !== undefined) {
     document.getElementById('co2-value').textContent = latest.co2;
     drawSparkline('sparkline-co2', dataHistory.co2, sparklineColors.co2);
-    checkCo2Threshold(latest.co2);
-    updateCo2Chart();
   }
   if (latest.pressure !== undefined) {
     document.getElementById('press-value').textContent = latest.pressure;
     drawSparkline('sparkline-press', dataHistory.press, sparklineColors.press);
-  }
-}
-
-// Create the main CO₂ line chart
-function createCo2Chart() {
-  const ctx = document.getElementById('co2-chart').getContext('2d');
-  co2Chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: dataHistory.co2.map((_, idx) => idx + 1),
-      datasets: [
-        {
-          label: 'CO₂ (ppm)',
-          data: dataHistory.co2,
-          borderColor: '#ec4899',
-          backgroundColor: 'transparent'
-        },
-        {
-          label: 'Threshold',
-          data: dataHistory.co2.map(() => co2Threshold),
-          borderColor: '#ef4444',
-          borderDash: [5, 5],
-          backgroundColor: 'transparent'
-        }
-      ]
-    },
-    options: {
-      animation: false,
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
-  });
-}
-
-// Update CO₂ chart with new data
-function updateCo2Chart() {
-  if (!co2Chart) return;
-  co2Chart.data.labels = dataHistory.co2.map((_, idx) => idx + 1);
-  co2Chart.data.datasets[0].data = dataHistory.co2;
-  co2Chart.data.datasets[1].data = dataHistory.co2.map(() => co2Threshold);
-  co2Chart.update('none');
-}
-
-// Display alert and highlight when CO₂ exceeds threshold
-function checkCo2Threshold(value) {
-  const alertElem = document.getElementById('co2-alert');
-  const cardElem = document.getElementById('co2-card');
-  if (value > co2Threshold) {
-    alertElem.classList.remove('hidden');
-    cardElem.classList.add('border-2', 'border-red-500');
-  } else {
-    alertElem.classList.add('hidden');
-    cardElem.classList.remove('border-2', 'border-red-500');
   }
 }
 
@@ -174,8 +112,6 @@ supabase
       });
       // Update UI with the latest record
       updateUI(data[data.length - 1]);
-      createCo2Chart();
-      updateCo2Chart();
     }
   });
 
