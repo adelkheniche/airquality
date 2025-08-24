@@ -198,10 +198,7 @@ async function reloadForInputs() {
   renderSummary('sum-30d', s30);
   renderSummary('sum-all', sall);
 
-  plotOne('chart-24h', s24, '24h');
-  plotOne('chart-7d',  s7,  'PM1 / PM2.5 / PM10 — 7 j');
-  plotOne('chart-30d', s30, 'PM1 / PM2.5 / PM10 — 30 j');
-  plotOne('chart-all', sall,'PM1 / PM2.5 / PM10 — historique');
+
 
   // Table activités
   const sum = await summaryByTag(startISO, endISO);
