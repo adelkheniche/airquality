@@ -198,12 +198,6 @@ async function reloadForInputs() {
   renderSummary('sum-30d', s30);
   renderSummary('sum-all', sall);
 
-  // Charts
-  plotOne('chart-24h', s24, "");
-  plotOne('chart-7d',  s7,  "");
-  plotOne('chart-30d', s30, "");
-  plotOne('chart-all', sall, "");
-
 
 
   // Table activités
