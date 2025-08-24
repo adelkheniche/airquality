@@ -140,7 +140,10 @@ function plotOne(containerId, serie, title) {
     scrollZoom:true
   };
 
-  Plotly.newPlot(containerId, traces, layout, config);
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  Plotly.react(container, traces, layout, config);
 }
 
 /* ---------- main flow ---------- */
@@ -197,6 +200,12 @@ async function reloadForInputs() {
   renderSummary('sum-7d',  s7);
   renderSummary('sum-30d', s30);
   renderSummary('sum-all', sall);
+
+  // Charts
+  plotOne('chart-24h', s24, "");
+  plotOne('chart-7d',  s7,  "");
+  plotOne('chart-30d', s30, "");
+  plotOne('chart-all', sall, "");
 
 
 
