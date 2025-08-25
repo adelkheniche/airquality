@@ -95,14 +95,17 @@ function renderSummary(id, serie) {
   const above = serie.filter(r => (r.pm25 ?? 0) > WHO_LINE).length;
   const max25 = Math.max(...serie.map(r => r.pm25 ?? 0));
   wrap.appendChild(chip(`Pics (PM2.5>15) : ${above}`));
-  wrap.appendChild(chip(`Max PM2.5 : ${max25.toFixed(1)} µg/m³`));
+  wrap.appendChild(chip(`Max PM2.5 : ${Math.round(max25)} µg/m³`));
 }
 
 function plotOne(containerId, serie, title, xRange) {
-  const x = serie.map(r => r.ts || r.t || r.time || r.date || r['ts']);
-  const y1 = serie.map(r => r.pm1  ?? null);
-  const y25= serie.map(r => r.pm25 ?? null);
-  const y10= serie.map(r => r.pm10 ?? null);
+  const x = serie.map(r => {
+    const ts = r.ts || r.t || r.time || r.date || r['ts'];
+    return dayjs(ts).tz('Europe/Paris').format();
+  });
+  const y1 = serie.map(r => r.pm1  != null ? Math.round(r.pm1)  : null);
+  const y25= serie.map(r => r.pm25 != null ? Math.round(r.pm25) : null);
+  const y10= serie.map(r => r.pm10 != null ? Math.round(r.pm10) : null);
 
   const traces = [
     { name:'PM2.5', x, y: y25, mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm25 } },
@@ -181,7 +184,7 @@ async function reloadForInputs() {
   // KPIs
   const k = await kpis(startISO, endISO);
   document.getElementById('kpi-peaks').textContent = k.total.toString();
-  document.getElementById('kpi-pph').textContent   = (k.pph ?? 0).toFixed(1);
+  document.getElementById('kpi-pph').textContent   = Math.round(k.pph ?? 0).toString();
   document.getElementById('kpi-pct').textContent   = (k.pct ?? 0).toFixed(0) + '%';
   setKpiPills(k.pph ?? 0, k.pct ?? 0);
 
@@ -204,10 +207,10 @@ async function reloadForInputs() {
   renderSummary('sum-all', sall);
 
   // Charts
-  plotOne('chart-24h', s24, "", [start24.toISOString(), nowUtc.toISOString()]);
-  plotOne('chart-7d',  s7,  "", [start7.toISOString(),  nowUtc.toISOString()]);
-  plotOne('chart-30d', s30, "", [start30.toISOString(), nowUtc.toISOString()]);
-  plotOne('chart-all', sall, "", [ext.min, ext.max]);
+  plotOne('chart-24h', s24, "", [start24.tz(tz).format(), nowUtc.tz(tz).format()]);
+  plotOne('chart-7d',  s7,  "", [start7.tz(tz).format(),  nowUtc.tz(tz).format()]);
+  plotOne('chart-30d', s30, "", [start30.tz(tz).format(), nowUtc.tz(tz).format()]);
+  plotOne('chart-all', sall, "", [dayjs(ext.min).tz(tz).format(), dayjs(ext.max).tz(tz).format()]);
 
 
 
@@ -220,9 +223,9 @@ async function reloadForInputs() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="py-2 pr-4">${r.tag}</td>
-      <td class="py-2 px-4 text-right tabular-nums">${(r.duration||0).toFixed(1)}</td>
+      <td class="py-2 px-4 text-right tabular-nums">${Math.round(r.duration||0)}</td>
       <td class="py-2 px-4 text-right tabular-nums">${r.peaks||0}</td>
-      <td class="py-2 pl-4 text-right tabular-nums">${( (r.peaks||0) / (r.duration||1) ).toFixed(1)}</td>
+      <td class="py-2 pl-4 text-right tabular-nums">${Math.round(( (r.peaks||0) / (r.duration||1) ))}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -233,12 +236,12 @@ async function reloadForInputs() {
   ul.innerHTML = '';
   peaks.forEach(p=>{
     const li = document.createElement('li');
-    const when = dayjs.utc(p.ts).tz(tz).format('DD/MM/YYYY HH:mm');
+    const when = fmtTs(p.ts);
     li.innerHTML = `
       <div class="flex items-center gap-2">
         <span class="inline-block w-1.5 h-4 rounded bg-[${COLORS.pm25}]"></span>
         <span class="tabular-nums">${when}</span>
-        <span class="ml-auto font-medium tabular-nums">${(p.value||0).toFixed(1)} µg/m³</span>
+        <span class="ml-auto font-medium tabular-nums">${Math.round(p.value||0)} µg/m³</span>
       </div>`;
     ul.appendChild(li);
   });
