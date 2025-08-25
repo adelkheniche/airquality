@@ -12,6 +12,11 @@ const WHO_LINE = 15; // µg/m³
 
 const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 
+// Limitation de la fréquence des requêtes
+const MIN_INTERVAL_MS = 2 * 60 * 1000;   // ≤ 30 appels/h en exploration
+const PASSIVE_INTERVAL_MS = 4 * 60 * 1000; // ≈15 appels/h en affichage passif
+let lastReload = 0;
+
 async function readingsExtent() {
   const { data, error } = await sb.rpc('readings_extent');
   if (error) throw error;
@@ -164,14 +169,14 @@ async function loadAll() {
   $to.value = endMax.tz(tz).format('YYYY-MM-DD');
 
   // handler
-  document.getElementById('apply').onclick = () => reloadForInputs();
+  document.getElementById('apply').onclick = () => reloadThrottled();
   document.getElementById('reset').onclick = () => {
     $from.value = startDefault.tz(tz).format('YYYY-MM-DD');
     $to.value = endMax.tz(tz).format('YYYY-MM-DD');
-    reloadForInputs();
+    reloadThrottled();
   };
 
-  await reloadForInputs();
+  await reloadThrottled();
 }
 
 async function reloadForInputs() {
@@ -247,8 +252,21 @@ async function reloadForInputs() {
   });
 }
 
+async function reloadThrottled() {
+  if (Date.now() - lastReload < MIN_INTERVAL_MS) {
+    console.warn('Requête ignorée pour respecter la limite de fréquence');
+    return;
+  }
+  lastReload = Date.now();
+  await reloadForInputs();
+}
+
 // kick
-loadAll().catch(err=>{
-  console.error(err);
-  alert('Erreur de chargement des données. Vérifiez vos RPC/permissions.');
-});
+loadAll()
+  .then(() => {
+    setInterval(reloadThrottled, PASSIVE_INTERVAL_MS);
+  })
+  .catch(err => {
+    console.error(err);
+    alert('Erreur de chargement des données. Vérifiez vos RPC/permissions.');
+  });
