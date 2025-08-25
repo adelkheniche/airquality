@@ -20,7 +20,7 @@ Pour préserver les ressources, l'application réduit la fréquence des requête
 
 - Un compte Supabase et un **projet Supabase** configuré.
 - Les fichiers front-end du projet (fournis dans ce repository) : `index.html`, `styles.css`, `main.js`, `config.example.js` (à renommer), et le présent `README.md`.
-- Le script SQL de création de la base de données Supabase (non fourni ici) contenant les tables de mesures et les fonctions RPC suivantes : `kpis_peaks_range`, `time_series_bucketed`, `peaks_in_range`, `summary_by_tag_range`, `readings_extent`. **Assurez-vous d’avoir ces procédures dans votre base** avec les bonnes définitions (selon votre modèle de données).
+- Le script SQL de création de la base de données Supabase (non fourni ici) contenant les tables de mesures et les fonctions RPC suivantes : `kpis_peaks_range`, `peaks_in_range`, `summary_by_tag_range`, `readings_extent`. **Assurez-vous d’avoir ces procédures dans votre base** avec les bonnes définitions (selon votre modèle de données).
 
 ## Installation et Configuration
 
