@@ -240,6 +240,7 @@ async function reloadForInputs() {
 
   // Liste des pics
   const peaks = await peaksList(startISO, endISO);
+  peaks.sort((a, b) => new Date(b.ts) - new Date(a.ts));
   const ul = document.getElementById('list-peaks');
   ul.innerHTML = '';
   peaks.forEach(p=>{
