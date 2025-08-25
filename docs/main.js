@@ -98,7 +98,7 @@ function renderSummary(id, serie) {
   wrap.appendChild(chip(`Max PM2.5 : ${max25.toFixed(1)} µg/m³`));
 }
 
-function plotOne(containerId, serie, title) {
+function plotOne(containerId, serie, title, xRange) {
   const x = serie.map(r => r.ts || r.t || r.time || r.date || r['ts']);
   const y1 = serie.map(r => r.pm1  ?? null);
   const y25= serie.map(r => r.pm25 ?? null);
@@ -110,18 +110,13 @@ function plotOne(containerId, serie, title) {
     { name:'PM1',   x, y: y1,  mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm1  } },
   ];
 
-  const ymax = Math.max(
-    20,
-    ...y1.filter(v=>v!=null),
-    ...y25.filter(v=>v!=null),
-    ...y10.filter(v=>v!=null)
-  );
+  const ymax = 30;
 
   const layout = {
     title: { text:title, font:{ size:14 } },
     margin:{ t:48, r:24, b:36, l:48 },
     xaxis:{ showgrid:true, gridcolor:COLORS.grid },
-    yaxis:{ showgrid:true, gridcolor:COLORS.grid, title:'µg/m³', rangemode:'tozero' },
+    yaxis:{ showgrid:true, gridcolor:COLORS.grid, title:'µg/m³', range:[0, ymax], fixedrange:true },
     legend:{ orientation:'h', x:0, xanchor:'left', y:1.2 },
     shapes: [
       { type:'line', xref:'paper', x0:0, x1:1, y0:WHO_LINE, y1:WHO_LINE,
@@ -130,6 +125,10 @@ function plotOne(containerId, serie, title) {
         fillcolor:'#DC2626', opacity:0.06, line:{ width:0 } }
     ]
   };
+
+  if (xRange) {
+    layout.xaxis.range = xRange;
+  }
 
   const config = {
     displaylogo:false,
@@ -188,9 +187,12 @@ async function reloadForInputs() {
 
   // Séries pour 4 fenêtres (on réutilise l’agrégat horaire simple)
   const nowUtc = dayjs.utc();
-  const s24 = await series(nowUtc.subtract(24,'hour').toISOString(), nowUtc.toISOString());
-  const s7  = await series(nowUtc.subtract(7,'day').toISOString(),   nowUtc.toISOString());
-  const s30 = await series(nowUtc.subtract(30,'day').toISOString(),  nowUtc.toISOString());
+  const start24 = nowUtc.subtract(24,'hour');
+  const start7  = nowUtc.subtract(7,'day');
+  const start30 = nowUtc.subtract(30,'day');
+  const s24 = await series(start24.toISOString(), nowUtc.toISOString());
+  const s7  = await series(start7.toISOString(),  nowUtc.toISOString());
+  const s30 = await series(start30.toISOString(), nowUtc.toISOString());
 
   // All time = extent
   const ext = await readingsExtent();
@@ -202,10 +204,10 @@ async function reloadForInputs() {
   renderSummary('sum-all', sall);
 
   // Charts
-  plotOne('chart-24h', s24, "");
-  plotOne('chart-7d',  s7,  "");
-  plotOne('chart-30d', s30, "");
-  plotOne('chart-all', sall, "");
+  plotOne('chart-24h', s24, "", [start24.toISOString(), nowUtc.toISOString()]);
+  plotOne('chart-7d',  s7,  "", [start7.toISOString(),  nowUtc.toISOString()]);
+  plotOne('chart-30d', s30, "", [start30.toISOString(), nowUtc.toISOString()]);
+  plotOne('chart-all', sall, "", [ext.min, ext.max]);
 
 
 
