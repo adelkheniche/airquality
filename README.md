@@ -9,6 +9,13 @@ Ce projet est un **MVP (Minimum Viable Product)** de tableau de bord pour analys
 - **Tableau des activités** – Pour chaque activité enregistrée dans l’atelier (étiquetée dans les données), affiche la durée totale pendant la période choisie, le nombre de pics survenus durant cette activité, et le ratio de pics par heure. Ce tableau permet d’identifier quelles activités sont associées à davantage de pics de pollution.
 - **Liste des pics** – Liste chronologique de tous les **pics de pollution** détectés pendant la plage de dates sélectionnée (dépassements du seuil de 15 µg/m³ en PM2.5). Pour chaque pic, on affiche la date/heure (heure de Paris) et la valeur mesurée (µg/m³). Cela permet de consulter le détail des événements de pollution et de les rapprocher éventuellement des activités en cours.
 
+## Limitation des appels à la base de données
+
+Pour préserver les ressources, l'application réduit la fréquence des requêtes :
+
+- En affichage passif, un rafraîchissement automatique est réalisé toutes les 4 minutes (≈15 appels/h).
+- Lors de l'exploration manuelle, un garde-fou limite les rafraîchissements à une fois toutes les 2 minutes (≤30 appels/h).
+
 ## Prérequis
 
 - Un compte Supabase et un **projet Supabase** configuré.
