@@ -26,9 +26,12 @@ async function readingsExtent() {
 }
 
 async function series(startISO, endISO) {
-  const { data, error } = await sb.rpc('time_series_bucketed', {
-    start_ts: startISO, end_ts: endISO
-  });
+  const { data, error } = await sb
+    .from('readings')
+    .select('ts, pm1, pm25, pm10')
+    .gte('ts', startISO)
+    .lte('ts', endISO)
+    .order('ts', { ascending: true });
   if (error) throw error;
   return data || [];
 }
@@ -193,7 +196,7 @@ async function reloadForInputs() {
   document.getElementById('kpi-pct').textContent   = (k.pct ?? 0).toFixed(0) + '%';
   setKpiPills(k.pph ?? 0, k.pct ?? 0);
 
-  // Séries pour 4 fenêtres (on réutilise l’agrégat horaire simple)
+  // Séries pour 4 fenêtres (données brutes)
   const nowUtc = dayjs.utc();
   const start24 = nowUtc.subtract(24,'hour');
   const start7  = nowUtc.subtract(7,'day');
