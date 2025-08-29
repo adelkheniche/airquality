@@ -25,13 +25,8 @@ async function readingsExtent() {
   return { min: row.min_ts, max: row.max_ts };
 }
 
-async function series(startISO, endISO) {
-  const { data, error } = await sb
-    .from('readings')
-    .select('ts, pm1, pm25, pm10')
-    .gte('ts', startISO)
-    .lte('ts', endISO)
-    .order('ts', { ascending: true });
+async function series() {
+  const { data, error } = await sb.rpc('last_readings', { limit_n: 100 });
   if (error) throw error;
   return data || [];
 }
