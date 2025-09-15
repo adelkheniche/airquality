@@ -251,7 +251,9 @@ async function loadAll() {
   });
   setActiveRange(currentRange);
 
-  await reloadThrottled();
+  await reloadForInputs();
+  // Allow an immediate manual refresh by backdating lastReload
+  lastReload = Date.now() - MIN_INTERVAL_MS;
 }
 
 async function reloadForInputs() {
