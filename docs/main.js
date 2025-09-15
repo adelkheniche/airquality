@@ -113,8 +113,8 @@ function renderSummary(id, serie) {
   }
   const above = serie.filter(r => (r.pm25 ?? 0) > WHO_LINE).length;
   const max25 = Math.max(...serie.map(r => r.pm25 ?? 0));
-  wrap.appendChild(chip(`Pics (PM2.5>15) : ${above}`));
-  wrap.appendChild(chip(`Max PM2.5 : ${Math.round(max25)} µg/m³`));
+  wrap.appendChild(chip(`Pics au-dessus du seuil : ${above}`));
+  wrap.appendChild(chip(`PM₂.₅ maximum : ${Math.round(max25)} µg/m³`));
 }
 
 function plotOne(containerId, serie, title, xRange) {
@@ -127,9 +127,9 @@ function plotOne(containerId, serie, title, xRange) {
   const y10= serie.map(r => r.pm10 != null ? Math.round(r.pm10) : null);
 
   const traces = [
-    { name:'PM2.5', x, y: y25, mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm25 } },
-    { name:'PM10',  x, y: y10, mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm10 } },
-    { name:'PM1',   x, y: y1,  mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm1  } },
+    { name:'PM₂.₅', x, y: y25, mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm25 } },
+    { name:'PM₁₀',  x, y: y10, mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm10 } },
+    { name:'PM₁',   x, y: y1,  mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm1  } },
   ];
 
   const allVals = [...y1, ...y25, ...y10].filter(v => v != null);
@@ -204,9 +204,9 @@ function plotOne(containerId, serie, title, xRange) {
 }
 
 const RANGE_TITLES = {
-  '24h': 'Aujourd’hui (24 h)',
-  '7d': '7 derniers jours',
-  '30d': '30 derniers jours',
+  '24h': 'Aujourd’hui (24 h)',
+  '7d': '7 jours',
+  '30d': '30 jours',
   'all': 'Depuis le début'
 };
 let currentRange = '24h';
@@ -285,8 +285,9 @@ async function reloadDashboard() {
   if (lastVal) {
     const val = lastVal.pm25 != null ? Math.round(lastVal.pm25) : null;
     valEl.textContent = val != null ? val.toString() : '–';
-    const measuredAt = dayjs(lastVal.ts).tz(tz).format('HH:mm');
-    timeEl.textContent = `Relevé à ${measuredAt}`;
+    const measuredAt = dayjs(lastVal.ts).tz(tz);
+    const measuredAtStr = measuredAt.format('HH:mm').replace(':', ' h ');
+    timeEl.textContent = `µg/m³ à ${measuredAtStr}`;
 
     if (prevVal && prevVal.pm25 != null && val != null) {
       const prev = Math.round(prevVal.pm25);
