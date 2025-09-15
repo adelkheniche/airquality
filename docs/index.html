@@ -40,11 +40,20 @@
 
   <!-- Header -->
   <header class="layout-container py-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-    <div class="flex items-center gap-4">
-      <div class="h-12 w-12 rounded-2xl bg-primary grid place-items-center text-white text-lg font-semibold tracking-tight">
-        AQ
+    <div class="brand flex items-center gap-5">
+      <div class="brand-mark" aria-hidden="true">
+        <svg class="brand-icon" viewBox="0 0 64 64" role="img" focusable="false">
+          <path d="M18 46 L29 18 L40 46" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M23.5 33.5H33.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
+          <path d="M40.5 22c6.6 0 11.5 4.9 11.5 11.5S47.1 45 40.5 45c-4.9 0-8.7-2.6-10.9-6.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M45.5 38.2l6.3 6.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+          <path d="M35.2 26.2c3.5-3.1 9.4-3.3 12.9-0.3" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.75" />
+        </svg>
       </div>
-      <h1 class="text-balance">Qualité de l’air</h1>
+      <div class="brand-copy">
+        <h1 class="brand-title text-balance">Qualité de l’air</h1>
+        <p class="brand-subtitle">Atelier de données atmosphériques</p>
+      </div>
     </div>
 
   </header>

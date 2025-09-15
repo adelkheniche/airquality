@@ -40,6 +40,97 @@ h1 {
   font-weight: 600;
 }
 
+.brand {
+  position: relative;
+}
+
+.brand-mark {
+  width: 64px;
+  height: 64px;
+  border-radius: 22px;
+  background: linear-gradient(140deg, #B01B37 0%, #D6435B 52%, #F47B80 100%);
+  box-shadow: 0 28px 40px -26px rgba(176, 27, 55, 0.7);
+  display: grid;
+  place-items: center;
+  color: #FFF5F6;
+  position: relative;
+  overflow: hidden;
+}
+
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  inset: 10px 12px 18px;
+  border-radius: 18px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0));
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.brand-icon {
+  width: 70%;
+  height: 70%;
+  z-index: 1;
+}
+
+.brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  line-height: 1.05;
+}
+
+.brand-title {
+  font-family: 'Playfair Display', 'Times New Roman', serif;
+  font-size: clamp(28px, 2.8vw, 32px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.brand-subtitle {
+  font-size: 0.75rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--secondary);
+  font-weight: 600;
+  padding: 4px 12px 4px 0;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.brand-subtitle::after {
+  content: "";
+  display: block;
+  flex-shrink: 0;
+  width: 42px;
+  height: 1px;
+  background: linear-gradient(90deg, rgba(176, 27, 55, 0.65), rgba(176, 27, 55, 0));
+}
+
+@media (max-width: 640px) {
+  .brand-mark {
+    width: 56px;
+    height: 56px;
+    border-radius: 20px;
+  }
+
+  .brand-title {
+    font-size: clamp(24px, 7vw, 30px);
+  }
+
+  .brand-subtitle {
+    letter-spacing: 0.2em;
+    font-size: 0.6875rem;
+  }
+
+  .brand-subtitle::after {
+    width: 28px;
+  }
+}
+
 h2 {
   font-size: 20px;
   font-weight: 600;
