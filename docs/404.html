@@ -35,7 +35,7 @@
   <header class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
     <div class="flex items-center gap-3">
       <div class="h-9 w-9 rounded-2xl bg-primary/90 grid place-items-center text-white font-bold">AQ</div>
-      <h1 class="text-xl font-semibold text-text">Tableau de bord — Qualité de l’air</h1>
+      <h1 class="text-xl font-semibold text-text">Qualité de l’air</h1>
     </div>
 
     <div class="flex items-center gap-3">
@@ -57,7 +57,7 @@
         <div id="kpi-peaks" class="text-3xl font-semibold tabular-nums text-text">–</div>
       </div>
       <div class="card">
-        <div class="text-sm text-secondary mb-1">Dernière mesure</div>
+        <div class="text-sm text-secondary mb-1">PM₂.₅ actuel</div>
         <div class="flex items-center gap-2">
           <div id="kpi-last" class="text-3xl font-semibold tabular-nums text-text">–</div>
           <span id="kpi-last-arrow" class="text-3xl"></span>
@@ -65,7 +65,7 @@
         <div id="kpi-last-time" class="text-sm text-secondary mt-1">–</div>
       </div>
       <div class="card">
-        <div class="text-sm text-secondary mb-1">% du temps &gt; 15 µg/m³</div>
+        <div class="text-sm text-secondary mb-1">Temps au-dessus du seuil</div>
         <div class="flex items-center gap-2">
           <div id="kpi-pct" class="text-3xl font-semibold tabular-nums text-text">–</div>
           <span id="kpi-pct-pill" class="badge">—</span>
@@ -77,7 +77,7 @@
     <section class="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <div class="card">
         <div class="flex items-center justify-between mb-2">
-          <h2 class="section-title">Aujourd’hui (24 h)</h2>
+          <h2 class="section-title">Aujourd’hui (24 h)</h2>
           <div class="summary-pills" id="sum-24h"></div>
         </div>
         <div id="chart-24h" class="h-72"></div>
@@ -85,7 +85,7 @@
 
       <div class="card">
         <div class="flex items-center justify-between mb-2">
-          <h2 class="section-title">7 derniers jours</h2>
+          <h2 class="section-title">7 jours</h2>
           <div class="summary-pills" id="sum-7d"></div>
         </div>
         <div id="chart-7d" class="h-72"></div>
@@ -93,7 +93,7 @@
 
       <div class="card">
         <div class="flex items-center justify-between mb-2">
-          <h2 class="section-title">30 derniers jours</h2>
+          <h2 class="section-title">30 jours</h2>
           <div class="summary-pills" id="sum-30d"></div>
         </div>
         <div id="chart-30d" class="h-72"></div>
