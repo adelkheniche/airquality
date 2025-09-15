@@ -148,7 +148,6 @@ h3 {
 
 .kpi-unit {
   font-size: 0.75rem;
-  text-transform: uppercase;
   letter-spacing: 0.16em;
   color: var(--secondary);
   margin-bottom: 8px;
