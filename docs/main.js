@@ -116,7 +116,10 @@ function plotOne(containerId, serie, title, xRange) {
     { name:'PM1',   x, y: y1,  mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm1  } },
   ];
 
-  const ymax = 30;
+  const allVals = [...y1, ...y25, ...y10].filter(v => v != null);
+  const ymax = allVals.length
+    ? Math.max(WHO_LINE, Math.ceil(Math.max(...allVals) / 5) * 5)
+    : WHO_LINE;
 
   const layout = {
     title: { text:title, font:{ size:14 } },
