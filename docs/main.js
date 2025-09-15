@@ -1,11 +1,11 @@
 /* globals supabase, dayjs, Plotly, window, document */
 
 const COLORS = {
-  pm25: '#DC2626', // rouge principal
+  pm25: '#E11D48', // rouge principal
   pm10: '#2563EB', // bleu
   pm1:  '#7C3AED', // violet pour distinguer visuellement la 3e trace
   grid: '#E5E7EB',
-  text: '#0B0B0C'
+  text: '#0F172A'
 };
 
 const WHO_LINE = 15; // µg/m³
@@ -134,9 +134,9 @@ function plotOne(containerId, serie, title, xRange) {
     legend:{ orientation:'h', x:0, xanchor:'left', y:1.2 },
     shapes: [
       { type:'line', xref:'paper', x0:0, x1:1, y0:WHO_LINE, y1:WHO_LINE,
-        line:{ dash:'dash', width:1, color:'#6B7280' } },
+        line:{ dash:'dash', width:1, color:'#475569' } },
       { type:'rect', xref:'paper', x0:0, x1:1, y0:WHO_LINE, y1:ymax,
-        fillcolor:'#DC2626', opacity:0.06, line:{ width:0 } }
+        fillcolor:COLORS.pm25, opacity:0.06, line:{ width:0 } }
     ]
   };
 
