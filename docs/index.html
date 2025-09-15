@@ -4,7 +4,13 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Qualité de l’air — Atelier</title>
-   <link rel="icon" href="favicon-96X96.png" type="image/png" />
+  <link rel="icon" href="favicon-96X96.png" type="image/png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@500;600&display=swap"
+    rel="stylesheet"
+  />
   
   <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -30,85 +36,126 @@
 
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="min-h-screen"> <!-- fond neutre -->
+<body class="min-h-screen">
 
   <!-- Header -->
-  <header class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-    <div class="flex items-center gap-3">
-      <div class="h-9 w-9 rounded-2xl bg-primary/90 grid place-items-center text-white font-bold">AQ</div>
-      <h1 class="text-xl font-semibold text-text">Tableau de bord — Qualité de l’air</h1>
+  <header class="layout-container py-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+    <div class="flex items-center gap-4">
+      <div class="h-12 w-12 rounded-2xl bg-primary grid place-items-center text-white text-lg font-semibold tracking-tight">
+        AQ
+      </div>
+      <h1 class="text-balance">Tableau de bord — Qualité de l’air</h1>
     </div>
 
-    <div class="flex items-center gap-3">
-      <div class="text-sm text-secondary">Période</div>
+    <div class="flex flex-wrap items-center gap-4 md:gap-6">
+      <span class="text-caption">Période</span>
       <input id="from" type="date" class="tw-input" />
       <span class="text-secondary">–</span>
       <input id="to" type="date" class="tw-input" />
-      <button id="apply" class="tw-btn-primary">Appliquer</button>
-      <button id="reset" class="tw-btn-outline">Réinitialiser</button>
+      <button id="apply" class="tw-btn tw-btn-primary">Appliquer</button>
+      <button id="reset" class="tw-btn tw-btn-outline">Réinitialiser</button>
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 pb-12 space-y-8">
+  <main class="layout-container pb-16 space-y-10">
 
     <!-- KPIs (placeholder simples, on garde la logique en place) -->
-    <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
-      <div class="card">
-        <div class="text-sm text-secondary mb-1">Pics détectés</div>
-        <div id="kpi-peaks" class="text-3xl font-semibold tabular-nums text-text">–</div>
-      </div>
-      <div class="card">
-        <div class="text-sm text-secondary mb-1">Dernière mesure</div>
-        <div class="flex items-center gap-2">
-          <div id="kpi-last" class="text-3xl font-semibold tabular-nums text-text">–</div>
-          <span id="kpi-last-arrow" class="text-3xl"></span>
+    <section class="grid gap-6 md:grid-cols-12">
+      <div class="card kpi-card md:col-span-4">
+        <div class="kpi-header">
+          <p class="kpi-label">Pics détectés</p>
+          <span class="kpi-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M4 16.5L9.5 11L13 14.5L20 7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M20 12V7H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
         </div>
-        <div id="kpi-last-time" class="text-sm text-secondary mt-1">–</div>
-      </div>
-      <div class="card">
-        <div class="text-sm text-secondary mb-1">% du temps &gt; 15 µg/m³</div>
-        <div class="flex items-center gap-2">
-          <div id="kpi-pct" class="text-3xl font-semibold tabular-nums text-text">–</div>
-          <span id="kpi-pct-pill" class="badge">—</span>
+        <div class="kpi-metric">
+          <div class="kpi-value-wrap">
+            <span id="kpi-peaks" class="kpi-value tabular-nums">–</span>
+          </div>
         </div>
+        <p class="kpi-sub">Total de pics sur la période</p>
+      </div>
+
+      <div class="card kpi-card md:col-span-4">
+        <div class="kpi-header">
+          <p class="kpi-label">Dernière mesure PM2.5</p>
+          <span class="kpi-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 3V21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M6 8L9 5L12 8L15 5L18 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </div>
+        <div class="kpi-metric">
+          <div class="kpi-value-wrap">
+            <span id="kpi-last" class="kpi-value tabular-nums">–</span>
+            <span class="kpi-unit">µg/m³</span>
+          </div>
+          <span id="kpi-last-arrow" class="kpi-trend-icon" aria-hidden="true"></span>
+        </div>
+        <p id="kpi-last-time" class="kpi-sub">–</p>
+      </div>
+
+      <div class="card kpi-card md:col-span-4">
+        <div class="kpi-header">
+          <p class="kpi-label">Temps &gt; 15 µg/m³</p>
+          <span class="kpi-icon" aria-hidden="true">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M5 19H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M7 16L11.5 7.5L14.5 13L17 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+        </div>
+        <div class="kpi-metric">
+          <div class="kpi-value-wrap">
+            <span id="kpi-pct" class="kpi-value tabular-nums">–</span>
+          </div>
+          <span id="kpi-pct-pill" class="status-pill">—</span>
+        </div>
+        <p class="kpi-sub">Part de la période au-dessus du seuil OMS</p>
       </div>
     </section>
 
     <!-- Trend (single chart with range buttons) -->
     <section class="card">
-      <div class="flex items-center justify-between mb-2">
+      <div class="section-header">
         <h2 id="chart-title" class="section-title">Aujourd’hui (24 h)</h2>
         <div class="summary-pills" id="chart-summary"></div>
       </div>
       <div id="chart-main" class="h-72"></div>
-      <div class="flex justify-center gap-2 mt-4">
-        <button class="tw-btn-primary" data-range="24h">24 h</button>
-        <button class="tw-btn-outline" data-range="7d">7 derniers jours</button>
-        <button class="tw-btn-outline" data-range="30d">30 derniers jours</button>
-        <button class="tw-btn-outline" data-range="all">Depuis toujours</button>
+      <div class="button-bar">
+        <button class="tw-btn tw-btn-primary" data-range="24h">24 h</button>
+        <button class="tw-btn tw-btn-outline" data-range="7d">7 derniers jours</button>
+        <button class="tw-btn tw-btn-outline" data-range="30d">30 derniers jours</button>
+        <button class="tw-btn tw-btn-outline" data-range="all">Depuis toujours</button>
       </div>
     </section>
 
     <!-- Table + Pics (structure légère) -->
-    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div class="card overflow-x-auto">
-        <h3 class="section-title mb-3">Activités → Risque</h3>
-        <table class="min-w-full table-zebra text-sm">
-          <thead class="sticky top-0 bg-white">
-            <tr class="text-left text-secondary">
-              <th class="py-2 pr-4">Hashtag</th>
-              <th class="py-2 px-4 text-right">Heures</th>
-              <th class="py-2 px-4 text-right">Pics</th>
-              <th class="py-2 pl-4 text-right">Pics/h</th>
-            </tr>
-          </thead>
-          <tbody id="tbl-acts"></tbody>
-        </table>
+    <section class="grid gap-6 lg:grid-cols-12">
+      <div class="card overflow-hidden lg:col-span-7">
+        <h3 class="section-title mb-4">Activités → Risque</h3>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="text-left">Hashtag</th>
+                <th class="text-right">Heures</th>
+                <th class="text-right">Pics</th>
+                <th class="text-right">Pics/h</th>
+              </tr>
+            </thead>
+            <tbody id="tbl-acts"></tbody>
+          </table>
+        </div>
       </div>
 
-      <div class="card">
-        <h3 class="section-title mb-3">Pics détectés</h3>
-        <ul id="list-peaks" class="space-y-2 text-sm max-h-64 overflow-y-auto"></ul>
+      <div class="card lg:col-span-5">
+        <h3 class="section-title mb-4">Pics détectés</h3>
+        <ul id="list-peaks" class="stacked-list"></ul>
       </div>
     </section>
   </main>
