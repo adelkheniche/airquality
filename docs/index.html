@@ -74,38 +74,18 @@
       </div>
     </section>
 
-    <!-- Trends (4 cartes, 3 valeurs par chart) -->
-    <section class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-      <div class="card">
-        <div class="flex items-center justify-between mb-2">
-          <h2 class="section-title">Aujourd’hui (24 h)</h2>
-          <div class="summary-pills" id="sum-24h"></div>
-        </div>
-        <div id="chart-24h" class="h-72"></div>
+    <!-- Trend (single chart with range buttons) -->
+    <section class="card">
+      <div class="flex items-center justify-between mb-2">
+        <h2 id="chart-title" class="section-title">Aujourd’hui (24 h)</h2>
+        <div class="summary-pills" id="chart-summary"></div>
       </div>
-
-      <div class="card">
-        <div class="flex items-center justify-between mb-2">
-          <h2 class="section-title">7 derniers jours</h2>
-          <div class="summary-pills" id="sum-7d"></div>
-        </div>
-        <div id="chart-7d" class="h-72"></div>
-      </div>
-
-      <div class="card">
-        <div class="flex items-center justify-between mb-2">
-          <h2 class="section-title">30 derniers jours</h2>
-          <div class="summary-pills" id="sum-30d"></div>
-        </div>
-        <div id="chart-30d" class="h-72"></div>
-      </div>
-
-      <div class="card">
-        <div class="flex items-center justify-between mb-2">
-          <h2 class="section-title">Depuis le début</h2>
-          <div class="summary-pills" id="sum-all"></div>
-        </div>
-        <div id="chart-all" class="h-72"></div>
+      <div id="chart-main" class="h-72"></div>
+      <div class="flex justify-center gap-2 mt-4">
+        <button class="tw-btn-primary" data-range="24h">24 h</button>
+        <button class="tw-btn-outline" data-range="7d">7 derniers jours</button>
+        <button class="tw-btn-outline" data-range="30d">30 derniers jours</button>
+        <button class="tw-btn-outline" data-range="all">Depuis toujours</button>
       </div>
     </section>
 

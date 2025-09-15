@@ -25,7 +25,7 @@ async function readingsExtent() {
   return { min: row.min_ts, max: row.max_ts };
 }
 
-async function series() {
+async function series(_startISO, _endISO) {
   const { data, error } = await sb.rpc('last_readings', { limit_n: 100 });
   if (error) throw error;
   return data || [];
@@ -185,7 +185,38 @@ function plotOne(containerId, serie, title, xRange) {
       Plotly.relayout(container, { 'yaxis.range': [0, padded] });
     }
   });
-} 
+}
+
+const RANGE_TITLES = {
+  '24h': 'Aujourd’hui (24 h)',
+  '7d': '7 derniers jours',
+  '30d': '30 derniers jours',
+  'all': 'Depuis le début'
+};
+let currentRange = '24h';
+const DATASETS = {};
+
+function setActiveRange(range) {
+  document.querySelectorAll('[data-range]').forEach(btn => {
+    if (btn.dataset.range === range) {
+      btn.classList.add('tw-btn-primary');
+      btn.classList.remove('tw-btn-outline');
+    } else {
+      btn.classList.add('tw-btn-outline');
+      btn.classList.remove('tw-btn-primary');
+    }
+  });
+}
+
+function plotRange(range) {
+  const ds = DATASETS[range];
+  if (!ds) return;
+  currentRange = range;
+  setActiveRange(range);
+  document.getElementById('chart-title').textContent = RANGE_TITLES[range];
+  renderSummary('chart-summary', ds.data);
+  plotOne('chart-main', ds.data, '', ds.xRange);
+}
 
 /* ---------- main flow ---------- */
 
@@ -210,6 +241,11 @@ async function loadAll() {
     reloadThrottled();
   };
 
+  document.querySelectorAll('[data-range]').forEach(btn => {
+    btn.addEventListener('click', () => plotRange(btn.dataset.range));
+  });
+  setActiveRange(currentRange);
+
   await reloadThrottled();
 }
 
@@ -227,11 +263,11 @@ async function reloadForInputs() {
   document.getElementById('kpi-pct').textContent   = (k.pct ?? 0).toFixed(0) + '%';
   setKpiPills(k.pph ?? 0, k.pct ?? 0);
 
-  // Séries pour 4 fenêtres (données brutes)
+  // Séries pour les différentes fenêtres
   const nowUtc = dayjs.utc();
-  const start24 = nowUtc.subtract(24,'hour');
-  const start7  = nowUtc.subtract(7,'day');
-  const start30 = nowUtc.subtract(30,'day');
+  const start24 = nowUtc.subtract(24, 'hour');
+  const start7  = nowUtc.subtract(7, 'day');
+  const start30 = nowUtc.subtract(30, 'day');
   const s24 = await series(start24.toISOString(), nowUtc.toISOString());
   const s7  = await series(start7.toISOString(),  nowUtc.toISOString());
   const s30 = await series(start30.toISOString(), nowUtc.toISOString());
@@ -240,16 +276,12 @@ async function reloadForInputs() {
   const ext = await readingsExtent();
   const sall = await series(ext.min, ext.max);
 
-  renderSummary('sum-24h', s24);
-  renderSummary('sum-7d',  s7);
-  renderSummary('sum-30d', s30);
-  renderSummary('sum-all', sall);
+  DATASETS['24h'] = { data: s24, xRange: [start24.tz(tz).format(), nowUtc.tz(tz).format()] };
+  DATASETS['7d']  = { data: s7,  xRange: [start7.tz(tz).format(),  nowUtc.tz(tz).format()] };
+  DATASETS['30d'] = { data: s30, xRange: [start30.tz(tz).format(), nowUtc.tz(tz).format()] };
+  DATASETS['all'] = { data: sall, xRange: [dayjs(ext.min).tz(tz).format(), dayjs(ext.max).tz(tz).format()] };
 
-  // Charts
-  plotOne('chart-24h', s24, "", [start24.tz(tz).format(), nowUtc.tz(tz).format()]);
-  plotOne('chart-7d',  s7,  "", [start7.tz(tz).format(),  nowUtc.tz(tz).format()]);
-  plotOne('chart-30d', s30, "", [start30.tz(tz).format(), nowUtc.tz(tz).format()]);
-  plotOne('chart-all', sall, "", [dayjs(ext.min).tz(tz).format(), dayjs(ext.max).tz(tz).format()]);
+  plotRange(currentRange);
 
 
 
