@@ -297,7 +297,7 @@ async function reloadDashboard() {
         arrowEl.textContent = '▼';
         arrowEl.className = 'kpi-trend-icon is-down';
       } else {
-        arrowEl.textContent = '→';
+        arrowEl.textContent = '=';
         arrowEl.className = 'kpi-trend-icon is-flat';
       }
     } else {
