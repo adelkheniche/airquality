@@ -26,14 +26,23 @@ async function readingsExtent() {
 }
 
 async function series(startISO, endISO) {
-  const { data, error } = await sb
-    .from('readings')
-    .select('ts, pm1, pm25, pm10')
-    .gte('ts', startISO)
-    .lte('ts', endISO)
-    .order('ts');
-  if (error) throw error;
-  return data || [];
+  const pageSize = 1000;
+  let from = 0;
+  let results = [];
+  while (true) {
+    const { data, error } = await sb
+      .from('readings')
+      .select('ts, pm1, pm25, pm10')
+      .gte('ts', startISO)
+      .lte('ts', endISO)
+      .order('ts')
+      .range(from, from + pageSize - 1);
+    if (error) throw error;
+    results = results.concat(data || []);
+    if (!data || data.length < pageSize) break;
+    from += pageSize;
+  }
+  return results;
 }
 
 async function kpis(startISO, endISO) {
