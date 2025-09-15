@@ -89,16 +89,6 @@ function setPctPill(pct) {
   else { pctPill.className = 'badge ok'; pctPill.textContent = 'OK'; }
 }
 
-async function lastReadings() {
-  const { data, error } = await sb
-    .from('readings')
-    .select('ts, pm25')
-    .order('ts', { ascending: false })
-    .limit(2);
-  if (error) throw error;
-  return data || [];
-}
-
 function chip(text) {
   const el = document.createElement('span');
   el.className = 'chip';
@@ -282,9 +272,16 @@ async function reloadForInputs() {
   document.getElementById('kpi-pct').textContent   = (k.pct ?? 0).toFixed(0) + '%';
   setPctPill(k.pct ?? 0);
 
-  const last = await lastReadings();
-  const lastVal = last[0];
-  const prevVal = last[1];
+  // Séries pour les différentes fenêtres
+  const nowUtc = dayjs.utc();
+  const start24 = nowUtc.subtract(24, 'hour');
+  const start7  = nowUtc.subtract(7, 'day');
+  const start30 = nowUtc.subtract(30, 'day');
+  const s24 = await series(start24.toISOString(), nowUtc.toISOString());
+
+  // Dernière mesure à partir de la série 24h
+  const lastVal = s24[s24.length - 1];
+  const prevVal = s24[s24.length - 2];
   const valEl = document.getElementById('kpi-last');
   const timeEl = document.getElementById('kpi-last-time');
   const arrowEl = document.getElementById('kpi-last-arrow');
@@ -317,12 +314,6 @@ async function reloadForInputs() {
     arrowEl.className = 'text-3xl';
   }
 
-  // Séries pour les différentes fenêtres
-  const nowUtc = dayjs.utc();
-  const start24 = nowUtc.subtract(24, 'hour');
-  const start7  = nowUtc.subtract(7, 'day');
-  const start30 = nowUtc.subtract(30, 'day');
-  const s24 = await series(start24.toISOString(), nowUtc.toISOString());
   const s7  = await series(start7.toISOString(),  nowUtc.toISOString());
   const s30 = await series(start30.toISOString(), nowUtc.toISOString());
 
