@@ -93,8 +93,8 @@ function validateRequest(body: any): { valid: boolean; errors: string[]; data?: 
       errors.push('Points array cannot be empty');
     }
     
-    if (body.points.length > 100) {
-      errors.push('Too many points (max 100 per request)');
+    if (body.points.length > 10000) {
+      errors.push('Too many points (max 10000 per request)');
     }
     
     // Validate each point
