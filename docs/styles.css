@@ -1,18 +1,20 @@
 /* Design tokens */
+/* Palette extraite de l'image de référence :
+   #E6E5E7, #B6B0D5, #E8E3F1, #757179, #0E1F23 */
 :root {
-  --primary: #E11D48;
-  --primary-hover: #BE123C;
-  --text: #0F172A;
-  --secondary: #475569;
-  --caption: #94A3B8;
-  --background: #F8FAFC;
-  --surface-soft: #F1F5F9;
-  --panel: #FFFFFF;
-  --border: #E5E7EB;
-  --success: #047857;
-  --warning: #B45309;
-  --danger: #B91C1C;
-  --shadow-soft: 0 24px 48px -32px rgba(15, 23, 42, 0.45);
+  --primary: #6A656F;
+  --primary-hover: #5D5863;
+  --text: #0E1F23;
+  --secondary: #5C5962;
+  --caption: #8E8A97;
+  --background: #E6E5E7;
+  --surface-soft: #E8E3F1;
+  --panel: #F7F5FB;
+  --border: #D2CFDA;
+  --success: #3F7666;
+  --warning: #9A7B4F;
+  --danger: #8C4A5A;
+  --shadow-soft: 0 24px 48px -32px rgba(14, 31, 35, 0.45);
 }
 
 body {
@@ -237,14 +239,14 @@ h3 {
 }
 
 .tw-btn:focus-visible {
-  outline: 2px solid rgba(225, 29, 72, 0.32);
+  outline: 2px solid rgba(106, 101, 111, 0.32);
   outline-offset: 2px;
-  box-shadow: 0 0 0 2px rgba(225, 29, 72, 0.18);
+  box-shadow: 0 0 0 2px rgba(106, 101, 111, 0.18);
 }
 
 .tw-btn-primary {
   background: var(--primary);
-  color: #FFFFFF;
+  color: #F7F5FB;
 }
 
 .tw-btn-primary:hover {
@@ -252,7 +254,7 @@ h3 {
 }
 
 .tw-btn-primary:active {
-  background: #9F1239;
+  background: #4F4B55;
 }
 
 .tw-btn-outline {
@@ -262,11 +264,11 @@ h3 {
 }
 
 .tw-btn-outline:hover {
-  background: rgba(225, 29, 72, 0.08);
+  background: rgba(106, 101, 111, 0.12);
 }
 
 .tw-btn-outline:active {
-  background: rgba(225, 29, 72, 0.12);
+  background: rgba(106, 101, 111, 0.18);
 }
 
 .tw-btn-ghost {
@@ -275,13 +277,13 @@ h3 {
 }
 
 .tw-btn-ghost:hover {
-  background: rgba(15, 23, 42, 0.04);
+  background: rgba(14, 31, 35, 0.06);
 }
 
 .tw-input {
   height: 44px;
   border: 1px solid var(--border);
-  background: #FFFFFF;
+  background: var(--panel);
   padding: 0 16px;
   border-radius: 12px;
   font-size: 0.9375rem;
@@ -292,9 +294,9 @@ h3 {
 
 .tw-input:focus-visible {
   border-color: var(--primary);
-  outline: 2px solid rgba(225, 29, 72, 0.26);
+  outline: 2px solid rgba(106, 101, 111, 0.26);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.12);
+  box-shadow: 0 0 0 4px rgba(106, 101, 111, 0.16);
 }
 
 .tw-input::-webkit-calendar-picker-indicator {
@@ -316,21 +318,21 @@ h3 {
 }
 
 .status-pill--ok {
-  color: #047857;
-  background: rgba(4, 120, 87, 0.16);
-  border-color: rgba(4, 120, 87, 0.32);
+  color: var(--secondary);
+  background: rgba(182, 176, 213, 0.24);
+  border-color: rgba(182, 176, 213, 0.5);
 }
 
 .status-pill--warn {
-  color: #B45309;
-  background: rgba(217, 119, 6, 0.18);
-  border-color: rgba(217, 119, 6, 0.36);
+  color: var(--secondary);
+  background: rgba(106, 101, 111, 0.18);
+  border-color: rgba(106, 101, 111, 0.36);
 }
 
 .status-pill--risk {
-  color: #B91C1C;
-  background: rgba(220, 38, 38, 0.18);
-  border-color: rgba(220, 38, 38, 0.36);
+  color: var(--text);
+  background: rgba(14, 31, 35, 0.12);
+  border-color: rgba(14, 31, 35, 0.3);
 }
 
 .table-scroll {
@@ -378,7 +380,7 @@ h3 {
 }
 
 .data-table tbody tr:hover td {
-  background: rgba(15, 23, 42, 0.02);
+  background: rgba(14, 31, 35, 0.04);
 }
 
 .stacked-list {
