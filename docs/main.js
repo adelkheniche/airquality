@@ -151,8 +151,41 @@ function plotOne(containerId, serie, title, xRange) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
+  // remember initial max for reset
+  container._initialYMax = ymax;
+
   Plotly.react(container, traces, layout, config);
-}
+
+  // Adjust Y-axis on zoom/pan to fit visible data with 10% headroom
+  if (container.removeAllListeners) container.removeAllListeners('plotly_relayout');
+  container.on('plotly_relayout', ev => {
+    // Reset to initial scale when autoranging (double click or reset button)
+    if (ev['xaxis.autorange']) {
+      Plotly.relayout(container, { 'yaxis.range': [0, container._initialYMax] });
+      return;
+    }
+
+    // Only recompute when x-range changed
+    if (ev['xaxis.range[0]'] !== undefined || ev['xaxis.range'] !== undefined) {
+      const range = container.layout?.xaxis?.range;
+      if (!range) return;
+      const [x0, x1] = range.map(d => new Date(d).getTime());
+      const ys = [];
+      container.data.forEach(trace => {
+        trace.x.forEach((xVal, i) => {
+          const t = new Date(xVal).getTime();
+          if (t >= x0 && t <= x1) {
+            const yVal = trace.y[i];
+            if (yVal != null) ys.push(yVal);
+          }
+        });
+      });
+      const max = ys.length ? Math.max(...ys) : container._initialYMax;
+      const padded = Math.max(WHO_LINE, Math.ceil((max * 1.1) / 5) * 5);
+      Plotly.relayout(container, { 'yaxis.range': [0, padded] });
+    }
+  });
+} 
 
 /* ---------- main flow ---------- */
 
