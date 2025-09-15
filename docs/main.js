@@ -84,9 +84,17 @@ function toParisISO(d) {
 
 function setPctPill(pct) {
   const pctPill = document.getElementById('kpi-pct-pill');
-  if (pct > 20) { pctPill.className = 'badge risk'; pctPill.textContent = 'À risque'; }
-  else if (pct > 10) { pctPill.className = 'badge warn'; pctPill.textContent = 'À surveiller'; }
-  else { pctPill.className = 'badge ok'; pctPill.textContent = 'OK'; }
+  if (!pctPill) return;
+  if (pct > 20) {
+    pctPill.className = 'status-pill status-pill--risk';
+    pctPill.textContent = 'À risque';
+  } else if (pct > 10) {
+    pctPill.className = 'status-pill status-pill--warn';
+    pctPill.textContent = 'À surveiller';
+  } else {
+    pctPill.className = 'status-pill status-pill--ok';
+    pctPill.textContent = 'OK';
+  }
 }
 
 function chip(text) {
@@ -289,29 +297,30 @@ async function reloadForInputs() {
   if (lastVal) {
     const val = lastVal.pm25 != null ? Math.round(lastVal.pm25) : null;
     valEl.textContent = val != null ? val.toString() : '–';
-    timeEl.textContent = dayjs(lastVal.ts).tz(tz).format('HH:mm');
+    const measuredAt = dayjs(lastVal.ts).tz(tz).format('HH:mm');
+    timeEl.textContent = `Relevé à ${measuredAt}`;
 
     if (prevVal && prevVal.pm25 != null && val != null) {
       const prev = Math.round(prevVal.pm25);
       if (val > prev) {
         arrowEl.textContent = '▲';
-        arrowEl.className = 'text-3xl text-danger';
+        arrowEl.className = 'kpi-trend-icon is-up';
       } else if (val < prev) {
         arrowEl.textContent = '▼';
-        arrowEl.className = 'text-3xl text-success';
+        arrowEl.className = 'kpi-trend-icon is-down';
       } else {
-        arrowEl.textContent = '▶';
-        arrowEl.className = 'text-3xl text-secondary';
+        arrowEl.textContent = '→';
+        arrowEl.className = 'kpi-trend-icon is-flat';
       }
     } else {
       arrowEl.textContent = '';
-      arrowEl.className = 'text-3xl';
+      arrowEl.className = 'kpi-trend-icon';
     }
   } else {
     valEl.textContent = '–';
-    timeEl.textContent = '–';
+    timeEl.textContent = 'Pas de relevé';
     arrowEl.textContent = '';
-    arrowEl.className = 'text-3xl';
+    arrowEl.className = 'kpi-trend-icon';
   }
 
   const s7  = await series(start7.toISOString(),  nowUtc.toISOString());
@@ -338,10 +347,10 @@ async function reloadForInputs() {
   sum.forEach(r=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="py-2 pr-4">${r.tag}</td>
-      <td class="py-2 px-4 text-right tabular-nums">${Math.round(r.duration||0)}</td>
-      <td class="py-2 px-4 text-right tabular-nums">${r.peaks||0}</td>
-      <td class="py-2 pl-4 text-right tabular-nums">${Math.round(( (r.peaks||0) / (r.duration||1) ))}</td>
+      <td>${r.tag}</td>
+      <td class="text-right tabular-nums">${Math.round(r.duration||0)}</td>
+      <td class="text-right tabular-nums">${r.peaks||0}</td>
+      <td class="text-right tabular-nums">${Math.round(((r.peaks||0) / (r.duration||1)))}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -354,12 +363,12 @@ async function reloadForInputs() {
   peaks.forEach(p=>{
     const li = document.createElement('li');
     const when = fmtTs(p.ts);
+    const iso = dayjs(p.ts).tz(tz).format();
     li.innerHTML = `
-      <div class="flex items-center gap-2">
-        <span class="inline-block w-1.5 h-4 rounded bg-[${COLORS.pm25}]"></span>
-        <span class="tabular-nums">${when}</span>
-        <span class="ml-auto font-medium tabular-nums">${Math.round(p.value||0)} µg/m³</span>
-      </div>`;
+      <span class="dot" aria-hidden="true"></span>
+      <time datetime="${iso}" class="tabular-nums">${when}</time>
+      <span class="value tabular-nums">${Math.round(p.value||0)} µg/m³</span>
+    `;
     ul.appendChild(li);
   });
 }
