@@ -30,8 +30,8 @@ const CONFIG = {
     
     // Chart colors
     colors: {
-        ok: '#10b981',      // Green
-        monitor: '#f59e0b', // Amber
-        risk: '#ef4444'     // Red
+        ok: '#10B981',      // Green
+        monitor: '#F59E0B', // Amber
+        risk: '#EF4444'     // Red
     }
 };

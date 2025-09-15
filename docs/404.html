@@ -12,15 +12,14 @@
       theme: {
         extend: {
           colors: {
-            brand: {
-              red:   '#DC2626',  /* primaire */
-              blue:  '#2563EB',
-              green: '#16A34A',
-              yellow:'#CA8A04',
-              violet:'#7C3AED'
-            },
-            ink: '#0B0B0C',
-            line:'#E5E7EB'
+            primary:'#E11D48',
+            'primary-hover':'#BE123C',
+            text:'#0F172A',
+            secondary:'#475569',
+            border:'#E5E7EB',
+            success:'#10B981',
+            warning:'#F59E0B',
+            danger:'#EF4444'
           },
           borderRadius: { 'xl2': '1rem', 'xl3': '1.25rem' }
         }
@@ -30,19 +29,19 @@
 
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="min-h-screen bg-[#F4F1FF]"> <!-- fond lavande très clair, look maquette -->
+<body class="min-h-screen"> <!-- fond neutre -->
 
   <!-- Header -->
   <header class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
     <div class="flex items-center gap-3">
-      <div class="h-9 w-9 rounded-2xl bg-brand-red/90 grid place-items-center text-white font-bold">AQ</div>
-      <h1 class="text-xl font-semibold text-ink">Tableau de bord — Qualité de l’air</h1>
+      <div class="h-9 w-9 rounded-2xl bg-primary/90 grid place-items-center text-white font-bold">AQ</div>
+      <h1 class="text-xl font-semibold text-text">Tableau de bord — Qualité de l’air</h1>
     </div>
 
     <div class="flex items-center gap-3">
-      <div class="text-sm text-gray-600">Période</div>
+      <div class="text-sm text-secondary">Période</div>
       <input id="from" type="date" class="tw-input" />
-      <span class="text-gray-500">–</span>
+      <span class="text-secondary">–</span>
       <input id="to" type="date" class="tw-input" />
       <button id="apply" class="tw-btn-primary">Appliquer</button>
       <button id="reset" class="tw-btn-outline">Réinitialiser</button>
@@ -54,20 +53,20 @@
     <!-- KPIs (placeholder simples, on garde la logique en place) -->
     <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div class="card">
-        <div class="text-sm text-gray-600 mb-1">Pics détectés</div>
-        <div id="kpi-peaks" class="text-3xl font-semibold tabular-nums text-ink">–</div>
+        <div class="text-sm text-secondary mb-1">Pics détectés</div>
+        <div id="kpi-peaks" class="text-3xl font-semibold tabular-nums text-text">–</div>
       </div>
       <div class="card">
-        <div class="text-sm text-gray-600 mb-1">Pics / heure</div>
+        <div class="text-sm text-secondary mb-1">Pics / heure</div>
         <div class="flex items-center gap-2">
-          <div id="kpi-pph" class="text-3xl font-semibold tabular-nums text-ink">–</div>
+          <div id="kpi-pph" class="text-3xl font-semibold tabular-nums text-text">–</div>
           <span id="kpi-pph-pill" class="badge">—</span>
         </div>
       </div>
       <div class="card">
-        <div class="text-sm text-gray-600 mb-1">% du temps &gt; 15 µg/m³</div>
+        <div class="text-sm text-secondary mb-1">% du temps &gt; 15 µg/m³</div>
         <div class="flex items-center gap-2">
-          <div id="kpi-pct" class="text-3xl font-semibold tabular-nums text-ink">–</div>
+          <div id="kpi-pct" class="text-3xl font-semibold tabular-nums text-text">–</div>
           <span id="kpi-pct-pill" class="badge">—</span>
         </div>
       </div>
@@ -114,7 +113,7 @@
         <h3 class="section-title mb-3">Activités → Risque</h3>
         <table class="min-w-full table-zebra text-sm">
           <thead class="sticky top-0 bg-white">
-            <tr class="text-left text-gray-500">
+            <tr class="text-left text-secondary">
               <th class="py-2 pr-4">Hashtag</th>
               <th class="py-2 px-4 text-right">Heures</th>
               <th class="py-2 px-4 text-right">Pics</th>
