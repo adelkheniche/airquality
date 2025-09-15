@@ -237,42 +237,30 @@ function plotRange(range) {
 /* ---------- main flow ---------- */
 
 async function loadAll() {
-  // 1) plage par défaut = aujourd’hui locale
-  const tz = 'Europe/Paris';
-  const extent = await readingsExtent();
-  const endMax = dayjs.utc(extent.max);
-  const startDefault = endMax.subtract(7, 'day');
-
-  // champs date (Paris)
-  const $from = document.getElementById('from');
-  const $to = document.getElementById('to');
-  $from.value = startDefault.tz(tz).format('YYYY-MM-DD');
-  $to.value = endMax.tz(tz).format('YYYY-MM-DD');
-
-  // handler
-  document.getElementById('apply').onclick = () => reloadThrottled();
-  document.getElementById('reset').onclick = () => {
-    $from.value = startDefault.tz(tz).format('YYYY-MM-DD');
-    $to.value = endMax.tz(tz).format('YYYY-MM-DD');
-    reloadThrottled();
-  };
-
   document.querySelectorAll('[data-range]').forEach(btn => {
     btn.addEventListener('click', () => plotRange(btn.dataset.range));
   });
   setActiveRange(currentRange);
 
-  await reloadForInputs();
+  await reloadDashboard();
   // Allow an immediate manual refresh by backdating lastReload
   lastReload = Date.now() - MIN_INTERVAL_MS;
 }
 
-async function reloadForInputs() {
+async function reloadDashboard() {
   const tz = 'Europe/Paris';
-  const f = document.getElementById('from').value;
-  const t = document.getElementById('to').value;
-  const startISO = dayjs.tz(`${f} 00:00`, tz).utc().toISOString();
-  const endISO   = dayjs.tz(`${t} 23:59`, tz).utc().toISOString();
+  const extent = await readingsExtent();
+  if (!extent || !extent.max) {
+    console.warn('Étendue de données indisponible, impossible de définir la période par défaut.');
+    return;
+  }
+  const minValue = extent.min ?? extent.max;
+  const endLocal = dayjs(extent.max).tz(tz).endOf('day');
+  const minLocal = dayjs(minValue).tz(tz).startOf('day');
+  let startLocal = dayjs(extent.max).tz(tz).subtract(7, 'day').startOf('day');
+  if (startLocal.isBefore(minLocal)) startLocal = minLocal;
+  const startISO = startLocal.utc().toISOString();
+  const endISO = endLocal.utc().toISOString();
 
   // KPIs
   const k = await kpis(startISO, endISO);
@@ -327,13 +315,13 @@ async function reloadForInputs() {
   const s30 = await series(start30.toISOString(), nowUtc.toISOString());
 
   // All time = extent
-  const ext = await readingsExtent();
-  const sall = await series(ext.min, ext.max);
+  const allStart = extent.min ?? extent.max;
+  const sall = await series(allStart, extent.max);
 
   DATASETS['24h'] = { data: s24, xRange: [start24.tz(tz).format(), nowUtc.tz(tz).format()] };
   DATASETS['7d']  = { data: s7,  xRange: [start7.tz(tz).format(),  nowUtc.tz(tz).format()] };
   DATASETS['30d'] = { data: s30, xRange: [start30.tz(tz).format(), nowUtc.tz(tz).format()] };
-  DATASETS['all'] = { data: sall, xRange: [dayjs(ext.min).tz(tz).format(), dayjs(ext.max).tz(tz).format()] };
+  DATASETS['all'] = { data: sall, xRange: [dayjs(allStart).tz(tz).format(), dayjs(extent.max).tz(tz).format()] };
 
   plotRange(currentRange);
 
@@ -379,7 +367,7 @@ async function reloadThrottled() {
     return;
   }
   lastReload = Date.now();
-  await reloadForInputs();
+  await reloadDashboard();
 }
 
 // kick
