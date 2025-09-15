@@ -1,11 +1,11 @@
 /* globals supabase, dayjs, Plotly, window, document */
 
 const COLORS = {
-  pm25: '#0E1F23', // accent profond pour le PM2.5
-  pm10: '#757179', // gris chaud pour le PM10
-  pm1:  '#B6B0D5', // lavande claire pour distinguer le PM1
-  grid: '#D2CFDA',
-  text: '#0E1F23'
+  pm25: '#424341', // accent profond et contrasté pour le PM2.5
+  pm10: '#AFA9B4', // lavande sourde pour le PM10
+  pm1:  '#AAAFAF', // gris doux pour distinguer le PM1
+  grid: '#C3C8C8',
+  text: '#424341'
 };
 
 const WHO_LINE = 15; // µg/m³
@@ -145,7 +145,7 @@ function plotOne(containerId, serie, title, xRange) {
     legend:{ orientation:'h', x:0, xanchor:'left', y:1.2 },
     shapes: [
       { type:'line', xref:'paper', x0:0, x1:1, y0:WHO_LINE, y1:WHO_LINE,
-        line:{ dash:'dash', width:1, color:'#5C5962' } },
+        line:{ dash:'dash', width:1, color:'#545858' } },
       { type:'rect', xref:'paper', x0:0, x1:1, y0:WHO_LINE, y1:ymax,
         fillcolor:COLORS.pm25, opacity:0.06, line:{ width:0 } }
     ]

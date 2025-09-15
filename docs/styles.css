@@ -1,20 +1,20 @@
 /* Design tokens */
 /* Palette extraite de l'image de référence :
-   #E6E5E7, #B6B0D5, #E8E3F1, #757179, #0E1F23 */
+   #D1D7D7, #AFA9B4, #D7D1D1, #AAAFAF, #424341 */
 :root {
-  --primary: #6A656F;
-  --primary-hover: #5D5863;
-  --text: #0E1F23;
-  --secondary: #5C5962;
-  --caption: #8E8A97;
-  --background: #E6E5E7;
-  --surface-soft: #E8E3F1;
-  --panel: #F7F5FB;
-  --border: #D2CFDA;
-  --success: #3F7666;
-  --warning: #9A7B4F;
-  --danger: #8C4A5A;
-  --shadow-soft: 0 24px 48px -32px rgba(14, 31, 35, 0.45);
+  --primary: #424341;
+  --primary-hover: #2F3030;
+  --text: #424341;
+  --secondary: #545858;
+  --caption: #646868;
+  --background: #D1D7D7;
+  --surface-soft: #D7D1D1;
+  --panel: #F1F3F3;
+  --border: #AAAFAF;
+  --success: #424341;
+  --warning: #AAAFAF;
+  --danger: #5E5862;
+  --shadow-soft: 0 24px 48px -32px rgba(66, 67, 65, 0.3);
 }
 
 body {
@@ -48,11 +48,11 @@ h1 {
   width: 64px;
   height: 64px;
   border-radius: 22px;
-  background: linear-gradient(140deg, #B01B37 0%, #D6435B 52%, #F47B80 100%);
-  box-shadow: 0 28px 40px -26px rgba(176, 27, 55, 0.7);
+  background: linear-gradient(140deg, #424341 0%, #AFA9B4 52%, #D7D1D1 100%);
+  box-shadow: 0 28px 40px -26px rgba(66, 67, 65, 0.45);
   display: grid;
   place-items: center;
-  color: #FFF5F6;
+  color: #F4F5F4;
   position: relative;
   overflow: hidden;
 }
@@ -107,7 +107,7 @@ h1 {
   flex-shrink: 0;
   width: 42px;
   height: 1px;
-  background: linear-gradient(90deg, rgba(176, 27, 55, 0.65), rgba(176, 27, 55, 0));
+  background: linear-gradient(90deg, rgba(66, 67, 65, 0.7), rgba(66, 67, 65, 0));
 }
 
 @media (max-width: 640px) {
@@ -330,14 +330,14 @@ h3 {
 }
 
 .tw-btn:focus-visible {
-  outline: 2px solid rgba(106, 101, 111, 0.32);
+  outline: 2px solid rgba(66, 67, 65, 0.32);
   outline-offset: 2px;
-  box-shadow: 0 0 0 2px rgba(106, 101, 111, 0.18);
+  box-shadow: 0 0 0 2px rgba(66, 67, 65, 0.2);
 }
 
 .tw-btn-primary {
   background: var(--primary);
-  color: #F7F5FB;
+  color: #F4F5F4;
 }
 
 .tw-btn-primary:hover {
@@ -345,7 +345,7 @@ h3 {
 }
 
 .tw-btn-primary:active {
-  background: #4F4B55;
+  background: #1F2020;
 }
 
 .tw-btn-outline {
@@ -355,11 +355,11 @@ h3 {
 }
 
 .tw-btn-outline:hover {
-  background: rgba(106, 101, 111, 0.12);
+  background: rgba(66, 67, 65, 0.08);
 }
 
 .tw-btn-outline:active {
-  background: rgba(106, 101, 111, 0.18);
+  background: rgba(66, 67, 65, 0.14);
 }
 
 .tw-btn-ghost {
@@ -368,7 +368,7 @@ h3 {
 }
 
 .tw-btn-ghost:hover {
-  background: rgba(14, 31, 35, 0.06);
+  background: rgba(66, 67, 65, 0.06);
 }
 
 .tw-input {
@@ -385,9 +385,9 @@ h3 {
 
 .tw-input:focus-visible {
   border-color: var(--primary);
-  outline: 2px solid rgba(106, 101, 111, 0.26);
+  outline: 2px solid rgba(66, 67, 65, 0.26);
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(106, 101, 111, 0.16);
+  box-shadow: 0 0 0 4px rgba(66, 67, 65, 0.16);
 }
 
 .tw-input::-webkit-calendar-picker-indicator {
@@ -410,20 +410,20 @@ h3 {
 
 .status-pill--ok {
   color: var(--secondary);
-  background: rgba(182, 176, 213, 0.24);
-  border-color: rgba(182, 176, 213, 0.5);
+  background: rgba(175, 169, 180, 0.22);
+  border-color: rgba(175, 169, 180, 0.45);
 }
 
 .status-pill--warn {
   color: var(--secondary);
-  background: rgba(106, 101, 111, 0.18);
-  border-color: rgba(106, 101, 111, 0.36);
+  background: rgba(170, 175, 175, 0.24);
+  border-color: rgba(170, 175, 175, 0.48);
 }
 
 .status-pill--risk {
   color: var(--text);
-  background: rgba(14, 31, 35, 0.12);
-  border-color: rgba(14, 31, 35, 0.3);
+  background: rgba(66, 67, 65, 0.12);
+  border-color: rgba(66, 67, 65, 0.3);
 }
 
 .table-scroll {
@@ -471,7 +471,7 @@ h3 {
 }
 
 .data-table tbody tr:hover td {
-  background: rgba(14, 31, 35, 0.04);
+  background: rgba(66, 67, 65, 0.05);
 }
 
 .stacked-list {
