@@ -18,7 +18,7 @@
 body {
   color: var(--text);
   background: var(--background);
-  font-family: 'Inter', 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
@@ -30,6 +30,7 @@ h2,
 h3 {
   color: var(--text);
   letter-spacing: -0.01em;
+  font-family: 'Playfair Display', 'Times New Roman', serif;
 }
 
 h1 {
@@ -79,8 +80,7 @@ h3 {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--caption);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .card {
@@ -109,8 +109,7 @@ h3 {
 .kpi-label {
   font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.04em;
   color: var(--caption);
 }
 
@@ -194,6 +193,7 @@ h3 {
   font-size: 20px;
   font-weight: 600;
   color: var(--text);
+  font-family: 'Playfair Display', 'Times New Roman', serif;
 }
 
 .summary-pills {
@@ -309,8 +309,7 @@ h3 {
   border-radius: 12px;
   font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.08em;
   color: var(--secondary);
   background: var(--surface-soft);
   border: 1px solid var(--border);
@@ -354,8 +353,7 @@ h3 {
 .data-table thead th {
   font-size: 0.75rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.06em;
   color: var(--caption);
   padding: 0 16px 16px 0;
   background: var(--panel);
@@ -427,5 +425,4 @@ h3 {
   font-weight: 500;
   color: var(--secondary);
   letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
