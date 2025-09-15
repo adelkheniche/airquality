@@ -82,17 +82,21 @@ function toParisISO(d) {
   return new Date(d).toISOString();
 }
 
-function setKpiPills(pph, pct) {
-  const pphPill = document.getElementById('kpi-pph-pill');
+function setPctPill(pct) {
   const pctPill = document.getElementById('kpi-pct-pill');
-
-  if (pph > 2) { pphPill.className = 'badge risk'; pphPill.textContent = 'À risque'; }
-  else if (pph > 1) { pphPill.className = 'badge warn'; pphPill.textContent = 'À surveiller'; }
-  else { pphPill.className = 'badge ok'; pphPill.textContent = 'OK'; }
-
   if (pct > 20) { pctPill.className = 'badge risk'; pctPill.textContent = 'À risque'; }
   else if (pct > 10) { pctPill.className = 'badge warn'; pctPill.textContent = 'À surveiller'; }
   else { pctPill.className = 'badge ok'; pctPill.textContent = 'OK'; }
+}
+
+async function lastReadings() {
+  const { data, error } = await sb
+    .from('readings')
+    .select('ts, pm25')
+    .order('ts', { ascending: false })
+    .limit(2);
+  if (error) throw error;
+  return data || [];
 }
 
 function chip(text) {
@@ -275,9 +279,43 @@ async function reloadForInputs() {
   // KPIs
   const k = await kpis(startISO, endISO);
   document.getElementById('kpi-peaks').textContent = k.total.toString();
-  document.getElementById('kpi-pph').textContent   = Math.round(k.pph ?? 0).toString();
   document.getElementById('kpi-pct').textContent   = (k.pct ?? 0).toFixed(0) + '%';
-  setKpiPills(k.pph ?? 0, k.pct ?? 0);
+  setPctPill(k.pct ?? 0);
+
+  const last = await lastReadings();
+  const lastVal = last[0];
+  const prevVal = last[1];
+  const valEl = document.getElementById('kpi-last');
+  const timeEl = document.getElementById('kpi-last-time');
+  const arrowEl = document.getElementById('kpi-last-arrow');
+
+  if (lastVal) {
+    const val = lastVal.pm25 != null ? Math.round(lastVal.pm25) : null;
+    valEl.textContent = val != null ? val.toString() : '–';
+    timeEl.textContent = dayjs(lastVal.ts).tz(tz).format('HH:mm');
+
+    if (prevVal && prevVal.pm25 != null && val != null) {
+      const prev = Math.round(prevVal.pm25);
+      if (val > prev) {
+        arrowEl.textContent = '▲';
+        arrowEl.className = 'text-3xl text-danger';
+      } else if (val < prev) {
+        arrowEl.textContent = '▼';
+        arrowEl.className = 'text-3xl text-success';
+      } else {
+        arrowEl.textContent = '▶';
+        arrowEl.className = 'text-3xl text-secondary';
+      }
+    } else {
+      arrowEl.textContent = '';
+      arrowEl.className = 'text-3xl';
+    }
+  } else {
+    valEl.textContent = '–';
+    timeEl.textContent = '–';
+    arrowEl.textContent = '';
+    arrowEl.className = 'text-3xl';
+  }
 
   // Séries pour les différentes fenêtres
   const nowUtc = dayjs.utc();
