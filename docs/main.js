@@ -12,6 +12,14 @@ const WHO_LINE = 15; // µg/m³
 
 const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 
+const rollEasing = cubicBezier(0.2, 0.6, 0.2, 1);
+
+const metricAnimator = createMetricAnimator();
+metricAnimator.register('kpi-peaks', { baseDigits: 3 });
+metricAnimator.register('kpi-last', { baseDigits: 3 });
+metricAnimator.register('kpi-pct', { baseDigits: 3 });
+metricAnimator.startInitialPlaceholders();
+
 // Limitation de la fréquence des requêtes
 const MIN_INTERVAL_MS = 2 * 60 * 1000;   // ≤ 30 appels/h en exploration
 const PASSIVE_INTERVAL_MS = 4 * 60 * 1000; // ≈15 appels/h en affichage passif
@@ -74,6 +82,408 @@ async function summaryByTag(startISO, endISO) {
   return data || [];
 }
 
+/* ---------- metric animation ---------- */
+
+function createMetricAnimator() {
+  const rollers = [];
+  const map = new Map();
+  const reduceQuery = typeof window.matchMedia === 'function'
+    ? window.matchMedia('(prefers-reduced-motion: reduce)')
+    : null;
+  let prefersReduced = !!(reduceQuery && reduceQuery.matches);
+  let activeStamp = null;
+
+  class MetricRoller {
+    constructor(el, opts = {}) {
+      this.el = el;
+      this.durationRange = opts.durationRange || [350, 600];
+      this.baseDigits = opts.baseDigits ?? 3;
+      this.prefersReduced = prefersReduced;
+      this.looping = false;
+      this.stopAfterCurrent = false;
+      this.isAnimating = false;
+      this.cycleTimeout = null;
+      this.frame = null;
+      this.pendingValue = null;
+      this.displayedStamp = null;
+      this.currentTargetSlot = null;
+      this.prefix = '';
+      this.suffix = '';
+      this.digitsCount = 0;
+      this.currentValue = MetricRoller.normalizeValue(el.textContent || '–');
+
+      this.track = document.createElement('span');
+      this.track.className = 'kpi-roller-track';
+      const slot = this.createSlot(this.currentValue);
+      this.track.appendChild(slot);
+      el.textContent = '';
+      el.appendChild(this.track);
+      this.updateFormatFromValue(this.currentValue, { preview: true });
+      this.setImmediate(this.currentValue);
+    }
+
+    static normalizeValue(value) {
+      if (value === null || value === undefined) return '–';
+      if (typeof value === 'number') {
+        if (!Number.isFinite(value)) return '–';
+        return value.toString();
+      }
+      const str = String(value);
+      const trimmed = str.trim();
+      return trimmed.length ? trimmed : '–';
+    }
+
+    updatePreference(reduce) {
+      this.prefersReduced = reduce;
+      if (reduce) {
+        const text = this.pendingValue
+          ?? (this.currentTargetSlot && this.currentTargetSlot.textContent)
+          ?? this.currentValue;
+        this.setImmediate(text);
+      }
+    }
+
+    createSlot(text) {
+      const slot = document.createElement('span');
+      slot.className = 'kpi-roller-slot';
+      slot.textContent = text;
+      return slot;
+    }
+
+    updateFormatFromValue(value, { preview = false } = {}) {
+      const str = MetricRoller.normalizeValue(value);
+      const trimmed = str.trim();
+      if (trimmed && /\d/.test(trimmed)) {
+        const match = trimmed.match(/^([^\d]*)([\d\s.,]*)(.*)$/);
+        if (match) {
+          const [, prefix, digitsPart, suffix] = match;
+          const digitsOnly = digitsPart.replace(/[^\d]/g, '');
+          if (digitsOnly.length) {
+            this.prefix = prefix;
+            this.suffix = suffix;
+            this.digitsCount = Math.max(digitsOnly.length, this.digitsCount || 0);
+          }
+        }
+      }
+      if (preview) this.updateMinWidth();
+      return str;
+    }
+
+    updateMinWidth() {
+      const digits = Math.max(this.baseDigits, this.digitsCount || 0);
+      const prefixLen = this.prefix ? this.prefix.length : 0;
+      const suffixLen = this.suffix ? this.suffix.length : 0;
+      const widthCh = digits + prefixLen + suffixLen + 0.5;
+      this.el.style.setProperty('--roller-min-width', `${widthCh}ch`);
+    }
+
+    generateRandomValue() {
+      const digitsTotal = Math.max(this.baseDigits, this.digitsCount || 0);
+      let digits = '';
+      for (let i = 0; i < digitsTotal; i += 1) {
+        digits += Math.floor(Math.random() * 10);
+      }
+      return `${this.prefix || ''}${digits}${this.suffix || ''}`;
+    }
+
+    scheduleNextCycle() {
+      if (!this.looping || this.stopAfterCurrent) return;
+      const wait = Math.round(randomBetween(80, 140));
+      this.cycleTimeout = window.setTimeout(() => {
+        this.cycleTimeout = null;
+        if (this.looping && !this.isAnimating) {
+          this.runCycle();
+        }
+      }, wait);
+    }
+
+    runCycle() {
+      if (this.prefersReduced || this.isAnimating) return;
+      const hasPending = this.pendingValue != null;
+      if (!hasPending && !this.looping) return;
+      const value = hasPending ? this.pendingValue : this.generateRandomValue();
+      const isFinal = hasPending;
+      if (hasPending) this.pendingValue = null;
+      this.animateTo(value, { isFinal });
+    }
+
+    animateTo(value, { isFinal }) {
+      const slot = this.createSlot(value);
+      slot.classList.add('is-rolling-in');
+      this.track.appendChild(slot);
+      const siblings = this.track.children;
+      const prevSlot = siblings.length > 1 ? siblings[siblings.length - 2] : null;
+      if (prevSlot) prevSlot.classList.add('is-rolling-out');
+
+      const prevHeight = prevSlot ? prevSlot.getBoundingClientRect().height : 0;
+      const slotHeight = slot.getBoundingClientRect().height;
+      let distance = prevHeight || slotHeight || this.el.getBoundingClientRect().height || 0;
+      if (!distance) distance = this.el.offsetHeight || 0;
+      const duration = Math.round(randomBetween(this.durationRange[0], this.durationRange[1]));
+      const start = performance.now();
+      this.isAnimating = true;
+      this.currentTargetSlot = slot;
+      this.el.classList.add('is-rolling');
+
+      const step = now => {
+        const elapsed = now - start;
+        const t = Math.min(Math.max(elapsed / duration, 0), 1);
+        const eased = rollEasing(t);
+        const translate = -distance * eased;
+        const blur = (1 - Math.pow(eased, 0.6)) * 4;
+        this.track.style.transform = `translateY(${translate}px)`;
+        this.track.style.filter = `blur(${blur.toFixed(3)}px)`;
+        if (t < 1) {
+          this.frame = requestAnimationFrame(step);
+        } else {
+          this.finishCycle(value, slot, prevSlot, isFinal);
+        }
+      };
+      this.frame = requestAnimationFrame(step);
+    }
+
+    finishCycle(value, slot, prevSlot, isFinal) {
+      this.track.style.transform = '';
+      this.track.style.filter = '';
+      if (prevSlot && prevSlot.parentNode === this.track) {
+        this.track.removeChild(prevSlot);
+      }
+      slot.classList.remove('is-rolling-in');
+      if (prevSlot) prevSlot.classList.remove('is-rolling-out');
+
+      this.currentValue = value;
+      this.currentTargetSlot = null;
+      this.isAnimating = false;
+      this.el.classList.remove('is-rolling');
+      this.updateFormatFromValue(value);
+      this.updateMinWidth();
+
+      const shouldStop = isFinal || this.stopAfterCurrent;
+      if (shouldStop) {
+        this.looping = false;
+        this.stopAfterCurrent = false;
+      } else {
+        this.scheduleNextCycle();
+      }
+    }
+
+    stop() {
+      this.looping = false;
+      this.stopAfterCurrent = false;
+      if (this.cycleTimeout) {
+        window.clearTimeout(this.cycleTimeout);
+        this.cycleTimeout = null;
+      }
+      if (this.frame) {
+        cancelAnimationFrame(this.frame);
+        this.frame = null;
+      }
+      this.isAnimating = false;
+      this.currentTargetSlot = null;
+      this.track.style.transform = '';
+      this.track.style.filter = '';
+      while (this.track.children.length > 1) {
+        this.track.removeChild(this.track.firstElementChild);
+      }
+      this.el.classList.remove('is-rolling');
+    }
+
+    setImmediate(value) {
+      const text = this.updateFormatFromValue(value, { preview: true });
+      this.stop();
+      this.track.innerHTML = '';
+      const slot = this.createSlot(text);
+      this.track.appendChild(slot);
+      this.currentValue = text;
+      this.updateMinWidth();
+    }
+
+    commit(value, stamp) {
+      const text = this.updateFormatFromValue(value, { preview: true });
+      if (this.prefersReduced) {
+        this.displayedStamp = stamp;
+        this.setImmediate(text);
+        return;
+      }
+      if (stamp != null && this.displayedStamp === stamp) {
+        if (this.currentValue !== text) {
+          this.setImmediate(text);
+        }
+        return;
+      }
+      this.displayedStamp = stamp;
+      this.pendingValue = text;
+      this.stopAfterCurrent = true;
+      if (this.currentTargetSlot) {
+        this.currentTargetSlot.textContent = text;
+      }
+      if (!this.isAnimating) {
+        this.runCycle();
+      }
+    }
+
+    prepareForNewData(delayMs) {
+      if (this.prefersReduced) return;
+      if (this.looping || this.isAnimating) return;
+      this.stopAfterCurrent = false;
+      this.looping = true;
+      if (this.cycleTimeout) {
+        window.clearTimeout(this.cycleTimeout);
+        this.cycleTimeout = null;
+      }
+      const launch = () => {
+        if (this.looping && !this.isAnimating) {
+          this.runCycle();
+        }
+      };
+      if (delayMs && delayMs > 0) {
+        this.cycleTimeout = window.setTimeout(() => {
+          this.cycleTimeout = null;
+          launch();
+        }, delayMs);
+      } else {
+        launch();
+      }
+    }
+  }
+
+  if (reduceQuery) {
+    const onChange = event => {
+      prefersReduced = event.matches;
+      rollers.forEach(roller => roller.updatePreference(prefersReduced));
+    };
+    if (typeof reduceQuery.addEventListener === 'function') {
+      reduceQuery.addEventListener('change', onChange);
+    } else if (typeof reduceQuery.addListener === 'function') {
+      reduceQuery.addListener(onChange);
+    }
+  }
+
+  function register(id, options) {
+    const el = document.getElementById(id);
+    if (!el) return null;
+    const roller = new MetricRoller(el, options);
+    rollers.push(roller);
+    map.set(id, roller);
+    return roller;
+  }
+
+  function startInitialPlaceholders() {
+    if (prefersReduced) return;
+    let delay = 0;
+    rollers.forEach((roller, index) => {
+      if (index > 0) {
+        delay += Math.round(randomBetween(40, 80));
+      }
+      roller.prepareForNewData(delay);
+    });
+  }
+
+  function beginCycle(stamp) {
+    if (stamp == null) return;
+    if (prefersReduced) {
+      activeStamp = stamp;
+      return;
+    }
+    if (activeStamp === stamp) return;
+    activeStamp = stamp;
+    let delay = 0;
+    rollers.forEach((roller, index) => {
+      if (index > 0) {
+        delay += Math.round(randomBetween(40, 80));
+      }
+      roller.prepareForNewData(delay);
+    });
+  }
+
+  function setValue(id, value, stamp) {
+    const roller = map.get(id);
+    if (!roller) return;
+    roller.commit(value, stamp);
+  }
+
+  return { register, startInitialPlaceholders, beginCycle, setValue };
+}
+
+function randomBetween(min, max) {
+  return Math.random() * (max - min) + min;
+}
+
+function cubicBezier(mX1, mY1, mX2, mY2) {
+  const NEWTON_ITERATIONS = 4;
+  const NEWTON_MIN_SLOPE = 0.001;
+  const SUBDIVISION_PRECISION = 1e-7;
+  const SUBDIVISION_MAX_ITERATIONS = 10;
+  const kSplineTableSize = 11;
+  const kSampleStepSize = 1 / (kSplineTableSize - 1);
+
+  const sampleValues = new Float32Array(kSplineTableSize);
+  if (!(mX1 === mY1 && mX2 === mY2)) {
+    for (let i = 0; i < kSplineTableSize; ++i) {
+      sampleValues[i] = calcBezier(i * kSampleStepSize, mX1, mX2);
+    }
+  }
+
+  function calcBezier(t, a1, a2) {
+    return ((1 - 3 * a2 + 3 * a1) * t + (3 * a2 - 6 * a1)) * t * t + (3 * a1) * t;
+  }
+
+  function getSlope(t, a1, a2) {
+    return 3 * ((1 - 3 * a2 + 3 * a1) * t * t + 2 * (3 * a2 - 6 * a1) * t + (3 * a1));
+  }
+
+  function binarySubdivide(x, a, b) {
+    let currentX;
+    let currentT;
+    let i = 0;
+    do {
+      currentT = a + (b - a) / 2;
+      currentX = calcBezier(currentT, mX1, mX2) - x;
+      if (currentX > 0) {
+        b = currentT;
+      } else {
+        a = currentT;
+      }
+    } while (Math.abs(currentX) > SUBDIVISION_PRECISION && ++i < SUBDIVISION_MAX_ITERATIONS);
+    return currentT;
+  }
+
+  function getTForX(x) {
+    let intervalStart = 0;
+    let currentSample = 1;
+    const lastSample = kSplineTableSize - 1;
+
+    for (; currentSample !== lastSample && sampleValues[currentSample] <= x; ++currentSample) {
+      intervalStart += kSampleStepSize;
+    }
+    --currentSample;
+
+    const sampleDelta = sampleValues[currentSample + 1] - sampleValues[currentSample];
+    const dist = sampleDelta ? (x - sampleValues[currentSample]) / sampleDelta : 0;
+    let guessForT = intervalStart + dist * kSampleStepSize;
+
+    const initialSlope = getSlope(guessForT, mX1, mX2);
+    if (initialSlope >= NEWTON_MIN_SLOPE) {
+      for (let i = 0; i < NEWTON_ITERATIONS; ++i) {
+        const currentX = calcBezier(guessForT, mX1, mX2) - x;
+        guessForT -= currentX / getSlope(guessForT, mX1, mX2);
+      }
+      return guessForT;
+    }
+    if (initialSlope === 0) {
+      return guessForT;
+    }
+    return binarySubdivide(x, intervalStart, intervalStart + kSampleStepSize);
+  }
+
+  return function bezier(x) {
+    if (mX1 === mY1 && mX2 === mY2) return x;
+    if (x <= 0) return 0;
+    if (x >= 1) return 1;
+    return calcBezier(getTForX(x), mY1, mY2);
+  };
+}
+
 /* ---------- helpers ---------- */
 
 function toParisISO(d) {
@@ -117,14 +527,14 @@ function renderSummary(id, serie) {
   wrap.appendChild(chip(`PM₂.₅ maximum : ${Math.round(max25)} µg/m³`));
 }
 
-function updateKpiCards(stats) {
-  const total = Number(stats?.total ?? 0);
-  const pct = Number(stats?.pct ?? 0);
-  const peaksEl = document.getElementById('kpi-peaks');
-  if (peaksEl) peaksEl.textContent = total.toString();
-  const pctEl = document.getElementById('kpi-pct');
-  if (pctEl) pctEl.textContent = `${pct.toFixed(0)}%`;
-  setPctPill(pct);
+function updateKpiCards(stats, datasetStamp) {
+  const totalRaw = Number(stats?.total);
+  const pctRaw = Number(stats?.pct);
+  const totalValue = Number.isFinite(totalRaw) ? Math.round(totalRaw).toString() : '–';
+  const pctValue = Number.isFinite(pctRaw) ? `${Math.round(pctRaw)}%` : '–';
+  metricAnimator.setValue('kpi-peaks', totalValue, datasetStamp);
+  metricAnimator.setValue('kpi-pct', pctValue, datasetStamp);
+  setPctPill(Number.isFinite(pctRaw) ? pctRaw : 0);
 }
 
 function renderPeaksList(peaks, tz = 'Europe/Paris') {
@@ -259,7 +669,7 @@ function plotRange(range) {
   document.getElementById('chart-title').textContent = RANGE_TITLES[range];
   renderSummary('chart-summary', ds.data);
   plotOne('chart-main', ds.data, '', ds.xRange);
-  updateKpiCards(ds.kpis);
+  updateKpiCards(ds.kpis, ds.datasetStamp);
   renderPeaksList(ds.peaks);
 }
 
@@ -285,7 +695,10 @@ async function reloadDashboard() {
   }
   const earliest = dayjs(extent.min ?? extent.max).utc();
   const latest = dayjs(extent.max).utc();
+  const datasetStamp = latest.valueOf();
   const clampStart = candidate => (candidate.isBefore(earliest) ? earliest : candidate);
+
+  metricAnimator.beginCycle(datasetStamp);
 
   const rangeBounds = {
     '24h': { start: clampStart(latest.subtract(24, 'hour')), end: latest },
@@ -310,7 +723,8 @@ async function reloadDashboard() {
         kpis: kpiData,
         peaks: sortedPeaks,
         rangeStartISO: startISO,
-        rangeEndISO: endISO
+        rangeEndISO: endISO,
+        datasetStamp
       }];
     })
   );
@@ -321,38 +735,48 @@ async function reloadDashboard() {
   const s24 = DATASETS['24h']?.data ?? [];
   const lastVal = s24[s24.length - 1];
   const prevVal = s24[s24.length - 2];
-  const valEl = document.getElementById('kpi-last');
   const timeEl = document.getElementById('kpi-last-time');
   const arrowEl = document.getElementById('kpi-last-arrow');
 
   if (lastVal) {
     const val = lastVal.pm25 != null ? Math.round(lastVal.pm25) : null;
-    valEl.textContent = val != null ? val.toString() : '–';
+    const displayVal = val != null ? val.toString() : '–';
+    metricAnimator.setValue('kpi-last', displayVal, datasetStamp);
     const measuredAt = dayjs(lastVal.ts).tz(tz);
     const measuredAtStr = measuredAt.format('HH:mm').replace(':', ' h ');
-    timeEl.textContent = `µg/m³ à ${measuredAtStr}`;
+    if (timeEl) timeEl.textContent = `µg/m³ à ${measuredAtStr}`;
 
     if (prevVal && prevVal.pm25 != null && val != null) {
       const prev = Math.round(prevVal.pm25);
       if (val > prev) {
-        arrowEl.textContent = '▲';
-        arrowEl.className = 'kpi-trend-icon is-up';
+        if (arrowEl) {
+          arrowEl.textContent = '▲';
+          arrowEl.className = 'kpi-trend-icon is-up';
+        }
       } else if (val < prev) {
-        arrowEl.textContent = '▼';
-        arrowEl.className = 'kpi-trend-icon is-down';
+        if (arrowEl) {
+          arrowEl.textContent = '▼';
+          arrowEl.className = 'kpi-trend-icon is-down';
+        }
       } else {
-        arrowEl.textContent = '=';
-        arrowEl.className = 'kpi-trend-icon is-flat';
+        if (arrowEl) {
+          arrowEl.textContent = '=';
+          arrowEl.className = 'kpi-trend-icon is-flat';
+        }
       }
     } else {
+      if (arrowEl) {
+        arrowEl.textContent = '';
+        arrowEl.className = 'kpi-trend-icon';
+      }
+    }
+  } else {
+    metricAnimator.setValue('kpi-last', '–', datasetStamp);
+    if (timeEl) timeEl.textContent = 'Pas de relevé';
+    if (arrowEl) {
       arrowEl.textContent = '';
       arrowEl.className = 'kpi-trend-icon';
     }
-  } else {
-    valEl.textContent = '–';
-    timeEl.textContent = 'Pas de relevé';
-    arrowEl.textContent = '';
-    arrowEl.className = 'kpi-trend-icon';
   }
 
   plotRange(currentRange);
