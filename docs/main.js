@@ -90,12 +90,16 @@ function createMetricAnimator() {
     ? window.matchMedia('(prefers-reduced-motion: reduce)')
     : null;
   let prefersReduced = !!(reduceQuery && reduceQuery.matches);
-  const MAX_PENDING_ANIMATION_MS = 120;
+  const DEFAULT_ROLL_DURATION_RANGE_MS = [300, 500];
+  const MAX_PENDING_ANIMATION_MS = 320;
 
   class MetricRoller {
     constructor(el, opts = {}) {
       this.el = el;
-      this.durationRange = opts.durationRange || [350, 600];
+      const customRange = Array.isArray(opts.durationRange)
+        ? opts.durationRange.slice(0, 2)
+        : null;
+      this.durationRange = customRange || DEFAULT_ROLL_DURATION_RANGE_MS;
       this.baseDigits = opts.baseDigits ?? 3;
       this.prefersReduced = prefersReduced;
       this.isAnimating = false;
