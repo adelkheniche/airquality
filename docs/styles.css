@@ -188,8 +188,14 @@ h3 {
 }
 
 .kpi-card {
-  min-height: 140px;
+  height: 192px;
   justify-content: space-between;
+}
+
+@media (min-width: 768px) {
+  .kpi-card {
+    height: 160px;
+  }
 }
 
 .kpi-header {
@@ -241,14 +247,27 @@ h3 {
   flex-direction: column;
   align-items: flex-end;
   justify-content: flex-start;
-  min-width: var(--roller-min-width, 3.5ch);
+  min-width: max(var(--roller-min-width, 3.5ch), var(--kpi-fixed-min-ch, 3.5ch));
   overflow: hidden;
   backface-visibility: hidden;
+}
+
+#kpi-peaks {
+  --kpi-fixed-min-ch: 5ch;
+}
+
+#kpi-last {
+  --kpi-fixed-min-ch: 4ch;
+}
+
+#kpi-pct {
+  --kpi-fixed-min-ch: 4.5ch;
 }
 
 .kpi-roller-track {
   display: flex;
   flex-direction: column;
+  contain: layout paint;
   will-change: transform, filter;
   transform: translateZ(0);
 }

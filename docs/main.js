@@ -15,10 +15,9 @@ const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 const rollEasing = cubicBezier(0.2, 0.6, 0.2, 1);
 
 const metricAnimator = createMetricAnimator();
-metricAnimator.register('kpi-peaks', { baseDigits: 3 });
+metricAnimator.register('kpi-peaks', { baseDigits: 4 });
 metricAnimator.register('kpi-last', { baseDigits: 3 });
 metricAnimator.register('kpi-pct', { baseDigits: 3 });
-metricAnimator.startInitialPlaceholders();
 
 // Limitation de la fréquence des requêtes
 const MIN_INTERVAL_MS = 2 * 60 * 1000;   // ≤ 30 appels/h en exploration
@@ -91,18 +90,19 @@ function createMetricAnimator() {
     ? window.matchMedia('(prefers-reduced-motion: reduce)')
     : null;
   let prefersReduced = !!(reduceQuery && reduceQuery.matches);
-  let activeStamp = null;
+  const DEFAULT_ROLL_DURATION_RANGE_MS = [300, 500];
+  const MAX_PENDING_ANIMATION_MS = 320;
 
   class MetricRoller {
     constructor(el, opts = {}) {
       this.el = el;
-      this.durationRange = opts.durationRange || [350, 600];
+      const customRange = Array.isArray(opts.durationRange)
+        ? opts.durationRange.slice(0, 2)
+        : null;
+      this.durationRange = customRange || DEFAULT_ROLL_DURATION_RANGE_MS;
       this.baseDigits = opts.baseDigits ?? 3;
       this.prefersReduced = prefersReduced;
-      this.looping = false;
-      this.stopAfterCurrent = false;
       this.isAnimating = false;
-      this.cycleTimeout = null;
       this.frame = null;
       this.pendingValue = null;
       this.displayedStamp = null;
@@ -110,6 +110,7 @@ function createMetricAnimator() {
       this.prefix = '';
       this.suffix = '';
       this.digitsCount = 0;
+      this.animationStart = null;
       this.currentValue = MetricRoller.normalizeValue(el.textContent || '–');
 
       this.track = document.createElement('span');
@@ -177,34 +178,12 @@ function createMetricAnimator() {
       this.el.style.setProperty('--roller-min-width', `${widthCh}ch`);
     }
 
-    generateRandomValue() {
-      const digitsTotal = Math.max(this.baseDigits, this.digitsCount || 0);
-      let digits = '';
-      for (let i = 0; i < digitsTotal; i += 1) {
-        digits += Math.floor(Math.random() * 10);
-      }
-      return `${this.prefix || ''}${digits}${this.suffix || ''}`;
-    }
-
-    scheduleNextCycle() {
-      if (!this.looping || this.stopAfterCurrent) return;
-      const wait = Math.round(randomBetween(80, 140));
-      this.cycleTimeout = window.setTimeout(() => {
-        this.cycleTimeout = null;
-        if (this.looping && !this.isAnimating) {
-          this.runCycle();
-        }
-      }, wait);
-    }
-
     runCycle() {
       if (this.prefersReduced || this.isAnimating) return;
-      const hasPending = this.pendingValue != null;
-      if (!hasPending && !this.looping) return;
-      const value = hasPending ? this.pendingValue : this.generateRandomValue();
-      const isFinal = hasPending;
-      if (hasPending) this.pendingValue = null;
-      this.animateTo(value, { isFinal });
+      if (this.pendingValue == null) return;
+      const value = this.pendingValue;
+      this.pendingValue = null;
+      this.animateTo(value, { isFinal: true });
     }
 
     animateTo(value, { isFinal }) {
@@ -219,9 +198,11 @@ function createMetricAnimator() {
       const slotHeight = slot.getBoundingClientRect().height;
       let distance = prevHeight || slotHeight || this.el.getBoundingClientRect().height || 0;
       if (!distance) distance = this.el.offsetHeight || 0;
-      const duration = Math.round(randomBetween(this.durationRange[0], this.durationRange[1]));
+      const [minDuration, maxDuration] = this.durationRange;
+      const duration = Math.round(randomBetween(minDuration, maxDuration));
       const start = performance.now();
       this.isAnimating = true;
+      this.animationStart = start;
       this.currentTargetSlot = slot;
       this.el.classList.add('is-rolling');
 
@@ -242,7 +223,7 @@ function createMetricAnimator() {
       this.frame = requestAnimationFrame(step);
     }
 
-    finishCycle(value, slot, prevSlot, isFinal) {
+    finishCycle(value, slot, prevSlot) {
       this.track.style.transform = '';
       this.track.style.filter = '';
       if (prevSlot && prevSlot.parentNode === this.track) {
@@ -254,31 +235,24 @@ function createMetricAnimator() {
       this.currentValue = value;
       this.currentTargetSlot = null;
       this.isAnimating = false;
+      this.animationStart = null;
       this.el.classList.remove('is-rolling');
       this.updateFormatFromValue(value);
       this.updateMinWidth();
 
-      const shouldStop = isFinal || this.stopAfterCurrent;
-      if (shouldStop) {
-        this.looping = false;
-        this.stopAfterCurrent = false;
-      } else {
-        this.scheduleNextCycle();
+      if (this.pendingValue != null) {
+        this.runCycle();
       }
     }
 
     stop() {
-      this.looping = false;
-      this.stopAfterCurrent = false;
-      if (this.cycleTimeout) {
-        window.clearTimeout(this.cycleTimeout);
-        this.cycleTimeout = null;
-      }
       if (this.frame) {
         cancelAnimationFrame(this.frame);
         this.frame = null;
       }
       this.isAnimating = false;
+      this.animationStart = null;
+      this.pendingValue = null;
       this.currentTargetSlot = null;
       this.track.style.transform = '';
       this.track.style.filter = '';
@@ -311,38 +285,34 @@ function createMetricAnimator() {
         }
         return;
       }
+
+      const now = (typeof performance !== 'undefined' && typeof performance.now === 'function')
+        ? performance.now()
+        : Date.now();
+
+      if (this.isAnimating && this.animationStart != null) {
+        const elapsed = now - this.animationStart;
+        if (elapsed > MAX_PENDING_ANIMATION_MS) {
+          this.displayedStamp = stamp;
+          this.setImmediate(text);
+          return;
+        }
+      }
+
       this.displayedStamp = stamp;
+
+      if (!this.isAnimating && this.currentValue === text) {
+        return;
+      }
+
       this.pendingValue = text;
-      this.stopAfterCurrent = true;
+
       if (this.currentTargetSlot) {
         this.currentTargetSlot.textContent = text;
       }
+
       if (!this.isAnimating) {
         this.runCycle();
-      }
-    }
-
-    prepareForNewData(delayMs) {
-      if (this.prefersReduced) return;
-      if (this.looping || this.isAnimating) return;
-      this.stopAfterCurrent = false;
-      this.looping = true;
-      if (this.cycleTimeout) {
-        window.clearTimeout(this.cycleTimeout);
-        this.cycleTimeout = null;
-      }
-      const launch = () => {
-        if (this.looping && !this.isAnimating) {
-          this.runCycle();
-        }
-      };
-      if (delayMs && delayMs > 0) {
-        this.cycleTimeout = window.setTimeout(() => {
-          this.cycleTimeout = null;
-          launch();
-        }, delayMs);
-      } else {
-        launch();
       }
     }
   }
@@ -368,32 +338,8 @@ function createMetricAnimator() {
     return roller;
   }
 
-  function startInitialPlaceholders() {
-    if (prefersReduced) return;
-    let delay = 0;
-    rollers.forEach((roller, index) => {
-      if (index > 0) {
-        delay += Math.round(randomBetween(40, 80));
-      }
-      roller.prepareForNewData(delay);
-    });
-  }
-
   function beginCycle(stamp) {
     if (stamp == null) return;
-    if (prefersReduced) {
-      activeStamp = stamp;
-      return;
-    }
-    if (activeStamp === stamp) return;
-    activeStamp = stamp;
-    let delay = 0;
-    rollers.forEach((roller, index) => {
-      if (index > 0) {
-        delay += Math.round(randomBetween(40, 80));
-      }
-      roller.prepareForNewData(delay);
-    });
   }
 
   function setValue(id, value, stamp) {
@@ -402,7 +348,7 @@ function createMetricAnimator() {
     roller.commit(value, stamp);
   }
 
-  return { register, startInitialPlaceholders, beginCycle, setValue };
+  return { register, beginCycle, setValue };
 }
 
 function randomBetween(min, max) {
@@ -668,9 +614,17 @@ function plotRange(range) {
   setActiveRange(range);
   document.getElementById('chart-title').textContent = RANGE_TITLES[range];
   renderSummary('chart-summary', ds.data);
-  plotOne('chart-main', ds.data, '', ds.xRange);
   updateKpiCards(ds.kpis, ds.datasetStamp);
   renderPeaksList(ds.peaks);
+
+  const drawChart = () => {
+    plotOne('chart-main', ds.data, '', ds.xRange);
+  };
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(drawChart);
+  } else {
+    setTimeout(drawChart, 0);
+  }
 }
 
 /* ---------- main flow ---------- */
