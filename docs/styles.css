@@ -11,7 +11,7 @@
   --surface-soft: #D7D1D1;
   --panel: #F1F3F3;
   --border: #AAAFAF;
-  --success: #424341;
+  --success: #027148;
   --warning: #AAAFAF;
   --danger: #5E5862;
   --shadow-soft: 0 24px 48px -32px rgba(66, 67, 65, 0.3);
@@ -262,11 +262,11 @@ h3 {
 }
 
 .kpi-trend-icon.is-up {
-  color: var(--success);
+  color: var(--danger);
 }
 
 .kpi-trend-icon.is-down {
-  color: var(--danger);
+  color: var(--success);
 }
 
 .kpi-trend-icon.is-flat {
