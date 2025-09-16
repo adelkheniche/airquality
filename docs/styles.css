@@ -236,6 +236,35 @@ h3 {
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text);
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: flex-start;
+  min-width: var(--roller-min-width, 3.5ch);
+  overflow: hidden;
+  backface-visibility: hidden;
+}
+
+.kpi-roller-track {
+  display: flex;
+  flex-direction: column;
+  will-change: transform, filter;
+  transform: translateZ(0);
+}
+
+.kpi-roller-slot {
+  display: block;
+  text-align: right;
+  line-height: 1;
+}
+
+.kpi-roller-slot.is-rolling-out {
+  opacity: 0.35;
+}
+
+.kpi-roller-slot.is-rolling-in {
+  opacity: 1;
 }
 
 .kpi-unit {
