@@ -52,9 +52,9 @@ async function kpis(startISO, endISO) {
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
   return {
-    total: row?.total_peaks ?? 0,
-    pph:   row?.peaks_per_hour ?? 0,
-    pct:   row?.percent_over15 ?? 0
+    total: Number(row?.total_peaks ?? 0),
+    pph:   Number(row?.peaks_per_hour ?? 0),
+    pct:   Number(row?.percent_over15 ?? 0)
   };
 }
 
@@ -115,6 +115,33 @@ function renderSummary(id, serie) {
   const max25 = Math.max(...serie.map(r => r.pm25 ?? 0));
   wrap.appendChild(chip(`Pics au-dessus du seuil : ${above}`));
   wrap.appendChild(chip(`PM₂.₅ maximum : ${Math.round(max25)} µg/m³`));
+}
+
+function updateKpiCards(stats) {
+  const total = Number(stats?.total ?? 0);
+  const pct = Number(stats?.pct ?? 0);
+  const peaksEl = document.getElementById('kpi-peaks');
+  if (peaksEl) peaksEl.textContent = total.toString();
+  const pctEl = document.getElementById('kpi-pct');
+  if (pctEl) pctEl.textContent = `${pct.toFixed(0)}%`;
+  setPctPill(pct);
+}
+
+function renderPeaksList(peaks, tz = 'Europe/Paris') {
+  const ul = document.getElementById('list-peaks');
+  if (!ul) return;
+  ul.innerHTML = '';
+  (peaks || []).forEach(p => {
+    const li = document.createElement('li');
+    const when = fmtTs(p.ts);
+    const iso = dayjs(p.ts).tz(tz).format();
+    li.innerHTML = `
+      <span class="dot" aria-hidden="true"></span>
+      <time datetime="${iso}" class="tabular-nums">${when}</time>
+      <span class="value tabular-nums">${Math.round(p.value || 0)} µg/m³</span>
+    `;
+    ul.appendChild(li);
+  });
 }
 
 function plotOne(containerId, serie, title, xRange) {
@@ -232,6 +259,8 @@ function plotRange(range) {
   document.getElementById('chart-title').textContent = RANGE_TITLES[range];
   renderSummary('chart-summary', ds.data);
   plotOne('chart-main', ds.data, '', ds.xRange);
+  updateKpiCards(ds.kpis);
+  renderPeaksList(ds.peaks);
 }
 
 /* ---------- main flow ---------- */
@@ -254,28 +283,42 @@ async function reloadDashboard() {
     console.warn('Étendue de données indisponible, impossible de définir la période par défaut.');
     return;
   }
-  const minValue = extent.min ?? extent.max;
-  const endLocal = dayjs(extent.max).tz(tz).endOf('day');
-  const minLocal = dayjs(minValue).tz(tz).startOf('day');
-  let startLocal = dayjs(extent.max).tz(tz).subtract(7, 'day').startOf('day');
-  if (startLocal.isBefore(minLocal)) startLocal = minLocal;
-  const startISO = startLocal.utc().toISOString();
-  const endISO = endLocal.utc().toISOString();
+  const earliest = dayjs(extent.min ?? extent.max).utc();
+  const latest = dayjs(extent.max).utc();
+  const clampStart = candidate => (candidate.isBefore(earliest) ? earliest : candidate);
 
-  // KPIs
-  const k = await kpis(startISO, endISO);
-  document.getElementById('kpi-peaks').textContent = k.total.toString();
-  document.getElementById('kpi-pct').textContent   = (k.pct ?? 0).toFixed(0) + '%';
-  setPctPill(k.pct ?? 0);
+  const rangeBounds = {
+    '24h': { start: clampStart(latest.subtract(24, 'hour')), end: latest },
+    '7d':  { start: clampStart(latest.subtract(7, 'day')),  end: latest },
+    '30d': { start: clampStart(latest.subtract(30, 'day')), end: latest },
+    'all': { start: earliest, end: latest }
+  };
 
-  // Séries pour les différentes fenêtres
-  const nowUtc = dayjs.utc();
-  const start24 = nowUtc.subtract(24, 'hour');
-  const start7  = nowUtc.subtract(7, 'day');
-  const start30 = nowUtc.subtract(30, 'day');
-  const s24 = await series(start24.toISOString(), nowUtc.toISOString());
+  const entries = await Promise.all(
+    Object.entries(rangeBounds).map(async ([range, bounds]) => {
+      const startISO = bounds.start.toISOString();
+      const endISO = bounds.end.toISOString();
+      const [serie, kpiData, peaksData] = await Promise.all([
+        series(startISO, endISO),
+        kpis(startISO, endISO),
+        peaksList(startISO, endISO)
+      ]);
+      const sortedPeaks = (peaksData || []).slice().sort((a, b) => new Date(b.ts) - new Date(a.ts));
+      return [range, {
+        data: serie,
+        xRange: [bounds.start.tz(tz).format(), bounds.end.tz(tz).format()],
+        kpis: kpiData,
+        peaks: sortedPeaks,
+        rangeStartISO: startISO,
+        rangeEndISO: endISO
+      }];
+    })
+  );
 
-  // Dernière mesure à partir de la série 24h
+  Object.keys(DATASETS).forEach(key => { delete DATASETS[key]; });
+  entries.forEach(([range, ds]) => { DATASETS[range] = ds; });
+
+  const s24 = DATASETS['24h']?.data ?? [];
   const lastVal = s24[s24.length - 1];
   const prevVal = s24[s24.length - 2];
   const valEl = document.getElementById('kpi-last');
@@ -312,24 +355,12 @@ async function reloadDashboard() {
     arrowEl.className = 'kpi-trend-icon';
   }
 
-  const s7  = await series(start7.toISOString(),  nowUtc.toISOString());
-  const s30 = await series(start30.toISOString(), nowUtc.toISOString());
-
-  // All time = extent
-  const allStart = extent.min ?? extent.max;
-  const sall = await series(allStart, extent.max);
-
-  DATASETS['24h'] = { data: s24, xRange: [start24.tz(tz).format(), nowUtc.tz(tz).format()] };
-  DATASETS['7d']  = { data: s7,  xRange: [start7.tz(tz).format(),  nowUtc.tz(tz).format()] };
-  DATASETS['30d'] = { data: s30, xRange: [start30.tz(tz).format(), nowUtc.tz(tz).format()] };
-  DATASETS['all'] = { data: sall, xRange: [dayjs(allStart).tz(tz).format(), dayjs(extent.max).tz(tz).format()] };
-
   plotRange(currentRange);
 
-
-
-  // Table activités
-  const sum = await summaryByTag(startISO, endISO);
+  const summaryRange = DATASETS['7d'] ?? DATASETS['all'];
+  const summaryStartISO = summaryRange?.rangeStartISO ?? earliest.toISOString();
+  const summaryEndISO = summaryRange?.rangeEndISO ?? latest.toISOString();
+  const sum = await summaryByTag(summaryStartISO, summaryEndISO);
   const tbody = document.getElementById('tbl-acts');
   tbody.innerHTML = '';
   sum.sort((a,b)=>( (b.peaks/(b.duration||1)) - (a.peaks/(a.duration||1)) ));
@@ -344,22 +375,6 @@ async function reloadDashboard() {
     tbody.appendChild(tr);
   });
 
-  // Liste des pics
-  const peaks = await peaksList(startISO, endISO);
-  peaks.sort((a, b) => new Date(b.ts) - new Date(a.ts));
-  const ul = document.getElementById('list-peaks');
-  ul.innerHTML = '';
-  peaks.forEach(p=>{
-    const li = document.createElement('li');
-    const when = fmtTs(p.ts);
-    const iso = dayjs(p.ts).tz(tz).format();
-    li.innerHTML = `
-      <span class="dot" aria-hidden="true"></span>
-      <time datetime="${iso}" class="tabular-nums">${when}</time>
-      <span class="value tabular-nums">${Math.round(p.value||0)} µg/m³</span>
-    `;
-    ul.appendChild(li);
-  });
 }
 
 async function reloadThrottled() {
