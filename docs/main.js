@@ -743,8 +743,12 @@ async function reloadDashboard() {
   const sum = await summaryByTag(summaryStartISO, summaryEndISO);
   const tbody = document.getElementById('tbl-acts');
   tbody.innerHTML = '';
-  sum.sort((a,b)=>( (b.peaks/(b.duration||1)) - (a.peaks/(a.duration||1)) ));
-  sum.forEach(r=>{
+  const filtered = sum.filter((row) => {
+    const tag = typeof row.tag === 'string' ? row.tag.toLowerCase() : '';
+    return tag && !tag.includes('example.csv');
+  });
+  filtered.sort((a,b)=>( (b.peaks/(b.duration||1)) - (a.peaks/(a.duration||1)) ));
+  filtered.forEach(r=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${r.tag}</td>
