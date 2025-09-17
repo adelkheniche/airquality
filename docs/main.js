@@ -19,14 +19,6 @@ let highlightDetail = null;
 window.addEventListener('aq:highlight', (event) => {
   const normalized = normalizeHighlightDetail(event?.detail);
   highlightDetail = normalized;
-  if (event?.detail?.source === 'activity-cell' && event?.detail?.scroll) {
-    requestAnimationFrame(() => {
-      const chart = document.getElementById('chart-main');
-      if (chart && typeof chart.scrollIntoView === 'function') {
-        chart.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-    });
-  }
   applyChartHighlight();
 });
 
