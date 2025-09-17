@@ -1,10 +1,10 @@
-const calendarId = 'sji17cho35m52lhecchvsfqn08@group.calendar.google.com';
+const calendarId = window.GCAL_CALENDAR_ID || 'sji17cho35m52lhecchvsfqn08@group.calendar.google.com';
 const API_KEY = window.GCAL_BROWSER_KEY || '';
-const MAP = {
-  'Resa Trotec': 'laser',
-  'Lasersaur': 'laser',
-  'Open Lab': 'ouverture',
-};
+const TYPE_RULES = [
+  { keyword: 'trotec', label: 'trotec' },
+  { keyword: 'hpc', label: 'HPC' },
+  { keyword: 'ceramique', label: 'céramique' },
+];
 
 const THRESHOLDS = {
   pm25: { warning: 15, alert: 35, unit: 'µg/m³', label: 'PM₂.₅' },
@@ -143,15 +143,27 @@ async function fetchCalendarEvents(now, { force = false } = {}) {
 }
 
 function resolveType(summary) {
-  if (!summary) return null;
-  const normalized = summary.toLowerCase();
-  for (const [needle, mapped] of Object.entries(MAP)) {
-    const n = needle.toLowerCase();
-    if (normalized === n || normalized.includes(n)) {
-      return mapped;
+  if (typeof summary !== 'string' || !summary.trim()) return null;
+  const normalized = normalizeCalendarText(summary);
+  if (!/^(resa|reservation)\b/.test(normalized)) {
+    return null;
+  }
+  for (const { keyword, label } of TYPE_RULES) {
+    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const keywordPattern = new RegExp(`\\b${escaped}\\b`);
+    if (keywordPattern.test(normalized)) {
+      return label;
     }
   }
   return null;
+}
+
+function normalizeCalendarText(text) {
+  if (typeof text !== 'string') return '';
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 }
 
 async function fetchSeries(name, { force = false } = {}) {
@@ -202,11 +214,13 @@ function fetchWithTimeout(resource, options = {}, timeout = FETCH_TIMEOUT) {
 
 function selectRelevantEvent(events, now) {
   const nowMs = now.getTime();
-  const live = events.find((event) => event.startMs <= nowMs && nowMs < event.endMs);
-  if (live) return live;
-  const upcoming = events.find((event) => event.startMs > nowMs);
-  if (upcoming) return upcoming;
-  return events[events.length - 1] || null;
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event.endMs < nowMs) {
+      return event;
+    }
+  }
+  return null;
 }
 
 function getEventState(event, now) {
