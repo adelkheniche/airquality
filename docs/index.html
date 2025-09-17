@@ -140,20 +140,7 @@
     <section class="grid gap-6 lg:grid-cols-12">
       <div class="card overflow-hidden lg:col-span-7">
         <h3 class="section-title mb-4">Activités → Risque</h3>
-        <div id="cell-activite" class="activity-risk-cell" aria-live="polite" aria-busy="true">Chargement…</div>
-        <div class="table-scroll">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th class="text-left">Hashtag</th>
-                <th class="text-right">Heures</th>
-                <th class="text-right">Pics</th>
-                <th class="text-right">Pics/h</th>
-              </tr>
-            </thead>
-            <tbody id="tbl-acts"></tbody>
-          </table>
-        </div>
+        <div id="cell-activite" class="activity-risk-cell"></div>
       </div>
 
       <div class="card lg:col-span-5">
@@ -183,7 +170,6 @@
 
   <!-- Config + App -->
   <script src="config.js"></script>
-  <script type="module" defer src="activity-risk.js"></script>
   <script src="main.js"></script>
 </body>
 </html>
