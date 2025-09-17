@@ -626,6 +626,16 @@ h3 {
   min-width: 0;
 }
 
+.activity-risk-title {
+  flex: 1 1 180px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .activity-risk-type {
   display: inline-flex;
   align-items: center;
@@ -717,6 +727,17 @@ h3 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.activity-risk-row .activity-risk-sparkline {
+  min-width: 72px;
+}
+
+.activity-risk-snapshot {
+  font-size: 0.85rem;
+  color: var(--secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .activity-risk-sparkline svg {
