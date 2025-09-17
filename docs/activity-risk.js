@@ -398,8 +398,44 @@ function formatPercent(value) {
 }
 
 function fetchWithTimeout(resource, options = {}, timeout = FETCH_TIMEOUT) {
+  const supportsAbort = typeof AbortController === 'function';
+  if (!supportsAbort) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error('Fetch timeout'));
+      }, timeout);
+      fetch(resource, options)
+        .then((response) => {
+          clearTimeout(timer);
+          resolve(response);
+        })
+        .catch((error) => {
+          clearTimeout(timer);
+          reject(error);
+        });
+    });
+  }
+
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
-  const opts = { ...options, signal: controller.signal };
+  const { signal: originalSignal, ...rest } = options;
+
+  const signal = originalSignal
+    ? mergeAbortSignals(originalSignal, controller.signal)
+    : controller.signal;
+
+  const opts = { ...rest, signal };
   return fetch(resource, opts).finally(() => clearTimeout(timer));
+}
+
+function mergeAbortSignals(primary, secondary) {
+  if (primary === secondary) return primary;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  primary?.addEventListener?.('abort', abort, { once: true });
+  secondary?.addEventListener?.('abort', abort, { once: true });
+  if (primary?.aborted || secondary?.aborted) {
+    controller.abort();
+  }
+  return controller.signal;
 }
