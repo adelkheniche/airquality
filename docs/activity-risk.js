@@ -1,90 +1,40 @@
 const calendarId = window.GCAL_CALENDAR_ID || 'sji17cho35m52lhecchvsfqn08@group.calendar.google.com';
 const API_KEY = window.GCAL_BROWSER_KEY || '';
-const TYPE_RULES = [
-  { keyword: 'trotec', label: 'trotec' },
-  { keyword: 'hpc', label: 'HPC' },
-  { keyword: 'ceramique', label: 'céramique' },
-];
-
-const THRESHOLDS = {
-  pm25: { warning: 15, alert: 35, unit: 'µg/m³', label: 'PM₂.₅' },
-  co2: { warning: 1000, alert: 1400, unit: 'ppm', label: 'CO₂' },
-};
 
 const TIMEZONE = 'Europe/Paris';
-const REFRESH_INTERVAL = 60_000;
-const CALENDAR_TTL = 5 * 60_000;
-const SERIES_TTL = 5 * 60_000;
-const FETCH_TIMEOUT = 5000;
 const VALID_RANGES = new Set(['24h', '7j', '30j', 'debut']);
-
-function endOfTodayParisISO() {
-  const nowParis = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-  const endParis = new Date(
-    nowParis.getFullYear(),
-    nowParis.getMonth(),
-    nowParis.getDate(),
-    23,
-    59,
-    59,
-    0,
-  );
-  return new Date(endParis.getTime() - endParis.getTimezoneOffset() * 60000).toISOString();
-}
-
-function septFirstParisISO() {
-  const nowParis = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-  const startParis = new Date(nowParis.getFullYear(), 8, 1, 0, 0, 0, 0);
-  return new Date(startParis.getTime() - startParis.getTimezoneOffset() * 60000).toISOString();
-}
-
-function computeWindow(mode) {
-  const endISO = endOfTodayParisISO();
-  const endMs = Date.parse(endISO);
-  const day = 86400e3;
-  if (mode === 'debut') return [septFirstParisISO(), endISO];
-  const span = mode === '24h' ? day : mode === '7j' ? 7 * day : 30 * day;
-  return [new Date(endMs - span).toISOString(), endISO];
-}
+const FETCH_TIMEOUT = 5000;
+const EVENTS_TTL = 5 * 60_000;
+const PM25_TTL = 8 * 60_000;
+const WARN_THRESHOLD = 15;
+const ALERT_THRESHOLD = 35;
+const PM25_ENDPOINT = '/airquality/data/pm25.json';
 
 const cell = document.getElementById('cell-activite');
 if (!cell) {
-  console.warn('[Activité/Risque] cellule introuvable.');
+  console.warn('[Activités → Risque] cellule introuvable.');
 } else {
   init();
 }
 
+let currentMode = '24h';
+let currentBounds = computeWindow(currentMode);
+let isRefreshing = false;
+let queuedRefresh = null;
+
+const eventsCache = new Map();
+let pm25Cache = { stamp: 0, value: null };
+
 function init() {
   if (!API_KEY) {
     setCellMessage('N/A', 'error');
-    console.warn('[Activité/Risque] Google Calendar API key missing.');
+    console.warn('[Activités → Risque] clé Google Calendar manquante.');
     return;
   }
 
   setupRangeButtons();
-  if (!currentBounds) {
-    currentBounds = computeWindow(currentMode);
-  }
-  cell.classList.add('is-loading');
-  cell.dataset.state = 'loading';
-  cell.setAttribute('aria-busy', 'true');
-  cell.textContent = 'Chargement…';
-
-  refresh({ mode: currentMode, timeBounds: currentBounds, forceEvents: true }).finally(() => {
-    setInterval(() => {
-      refresh({ forceSeries: currentState === 'live' });
-    }, REFRESH_INTERVAL);
-  });
+  refresh({ forceEvents: true, forceSeries: true });
 }
-
-let isFetching = false;
-let currentState = 'loading';
-let currentMode = '24h';
-let currentBounds = null;
-let pendingRefresh = null;
-
-const calendarCache = new Map();
-const seriesCache = new Map();
 
 function setupRangeButtons() {
   const buttons = Array.from(document.querySelectorAll('[data-range]'));
@@ -93,9 +43,9 @@ function setupRangeButtons() {
   const validButtons = buttons.filter((btn) => VALID_RANGES.has(btn.dataset.range));
   if (!validButtons.length) return;
 
-  const activeButton = validButtons.find((btn) => btn.classList.contains('active'));
-  const initialButton = activeButton || validButtons[0];
-  const initialMode = initialButton?.dataset.range;
+  const active = validButtons.find((btn) => btn.classList.contains('active'));
+  const initial = active || validButtons[0];
+  const initialMode = initial?.dataset.range;
   if (initialMode && VALID_RANGES.has(initialMode)) {
     currentMode = initialMode;
     currentBounds = computeWindow(currentMode);
@@ -109,12 +59,7 @@ function setupRangeButtons() {
       currentMode = mode;
       currentBounds = computeWindow(mode);
       setButtonsActive(mode);
-      refresh({
-        mode,
-        timeBounds: currentBounds,
-        forceSeries: currentState === 'live',
-        forceEvents: true,
-      });
+      refresh({ mode, bounds: currentBounds, forceEvents: true });
     });
   });
 }
@@ -129,72 +74,45 @@ function setButtonsActive(mode) {
   });
 }
 
-async function refresh({ forceSeries = false, mode = currentMode, timeBounds, forceEvents = false } = {}) {
-  const boundsArg = Array.isArray(timeBounds) ? timeBounds.slice(0, 2) : undefined;
-  if (isFetching) {
-    pendingRefresh = {
-      forceSeries,
-      mode,
-      timeBounds: boundsArg,
-      forceEvents,
-    };
+async function refresh({ mode = currentMode, bounds, forceEvents = false, forceSeries = false } = {}) {
+  const effectiveBounds = Array.isArray(bounds) ? bounds.slice(0, 2) : computeWindow(mode);
+  if (!cell) return;
+
+  if (isRefreshing) {
+    queuedRefresh = { mode, bounds: effectiveBounds, forceEvents, forceSeries };
     return;
   }
-  isFetching = true;
+
+  isRefreshing = true;
+  currentMode = mode;
+  currentBounds = effectiveBounds;
+  showLoading();
+
   try {
-    currentMode = mode;
-    const bounds = boundsArg || currentBounds || computeWindow(currentMode);
-    currentBounds = bounds;
-    const [timeMin, timeMax] = bounds;
-
-    cell.classList.add('is-loading');
-    cell.dataset.state = 'loading';
-    cell.setAttribute('aria-busy', 'true');
-    cell.textContent = 'Chargement…';
-
-    const now = new Date();
-    const events = await fetchCalendarEvents({ mode: currentMode, timeMin, timeMax, force: forceEvents });
-    if (!events.length) {
-      setCellMessage('—', 'empty');
-      currentState = 'empty';
-      return;
-    }
-
-    const selected = selectRelevantEvent(events, now);
-    if (!selected) {
-      setCellMessage('—', 'empty');
-      currentState = 'empty';
-      return;
-    }
-
-    const state = getEventState(selected, now);
-    currentState = state;
-
-    let pm25Segment = [];
-    let co2Segment = [];
-    if (state !== 'upcoming') {
-      const [pm25Series, co2Series] = await Promise.all([
-        fetchSeries('pm25', { force: forceSeries }),
-        fetchSeries('co2', { force: forceSeries }),
-      ]);
-      const endMs = state === 'live' ? now.getTime() : selected.endMs;
-      const startMs = selected.startMs;
-      pm25Segment = sliceSeries(pm25Series, startMs, endMs);
-      co2Segment = sliceSeries(co2Series, startMs, endMs);
-    }
-
-    renderEvent({ event: selected, state, pm25Segment, co2Segment });
+    const [timeMin, timeMax] = effectiveBounds;
+    const [events, pm25Series] = await Promise.all([
+      fetchCalendarEvents({ timeMin, timeMax, force: forceEvents }),
+      fetchPm25Series({ force: forceSeries }),
+    ]);
+    renderEvents({ events, pm25Series, timeMin, timeMax });
   } catch (error) {
-    console.error('[Activité/Risque] Échec du rafraîchissement', error);
+    console.error('[Activités → Risque] rafraîchissement impossible', error);
     setCellMessage('N/A', 'error');
   } finally {
-    isFetching = false;
-    if (pendingRefresh) {
-      const next = pendingRefresh;
-      pendingRefresh = null;
+    isRefreshing = false;
+    if (queuedRefresh) {
+      const next = queuedRefresh;
+      queuedRefresh = null;
       refresh(next);
     }
   }
+}
+
+function showLoading() {
+  cell.classList.add('is-loading');
+  cell.dataset.state = 'loading';
+  cell.setAttribute('aria-busy', 'true');
+  cell.textContent = 'Chargement…';
 }
 
 function setCellMessage(message, state) {
@@ -204,97 +122,84 @@ function setCellMessage(message, state) {
   cell.textContent = message;
 }
 
-async function fetchCalendarEvents({ mode, timeMin, timeMax, force = false } = {}) {
+async function fetchCalendarEvents({ timeMin, timeMax, force = false } = {}) {
+  const cacheKey = `${timeMin}|${timeMax}`;
   const stamp = Date.now();
-  const cacheKey = mode || `${timeMin}|${timeMax}`;
-  const cached = calendarCache.get(cacheKey);
-  if (!force && cached && stamp - cached.stamp < CALENDAR_TTL) {
-    if (cached.bounds && cached.bounds[0] === timeMin && cached.bounds[1] === timeMax) {
-      return cached.value;
+  const cached = eventsCache.get(cacheKey);
+  if (!force && cached && stamp - cached.stamp < EVENTS_TTL) {
+    return cached.value;
+  }
+
+  let pageToken;
+  const collected = [];
+  do {
+    const url = new URL(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
+    );
+    url.searchParams.set('singleEvents', 'true');
+    url.searchParams.set('orderBy', 'startTime');
+    url.searchParams.set('maxResults', '250');
+    url.searchParams.set('fields', 'items(id,summary,start,end,status),nextPageToken');
+    if (timeMin) url.searchParams.set('timeMin', timeMin);
+    if (timeMax) url.searchParams.set('timeMax', timeMax);
+    if (pageToken) url.searchParams.set('pageToken', pageToken);
+    url.searchParams.set('key', API_KEY);
+
+    const response = await fetchWithTimeout(url.toString());
+    if (!response.ok) {
+      throw new Error(`Calendar request failed (${response.status})`);
     }
-  }
+    const payload = await response.json();
+    const items = Array.isArray(payload.items) ? payload.items : [];
 
-  const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`);
-  url.searchParams.set('singleEvents', 'true');
-  url.searchParams.set('orderBy', 'startTime');
-  url.searchParams.set('maxResults', '250');
-  url.searchParams.set('fields', 'items(id,summary,start,end,status)');
-  if (timeMin) url.searchParams.set('timeMin', timeMin);
-  if (timeMax) url.searchParams.set('timeMax', timeMax);
-  url.searchParams.set('key', API_KEY);
+    items.forEach((item) => {
+      if (item.status !== 'confirmed') return;
+      const start = item.start?.dateTime;
+      const end = item.end?.dateTime;
+      if (!start || !end) return;
+      const startMs = Date.parse(start);
+      const endMs = Date.parse(end);
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return;
 
-  const response = await fetchWithTimeout(url.toString());
-  if (!response.ok) {
-    throw new Error(`Calendar request failed (${response.status})`);
-  }
-  const payload = await response.json();
-  const items = Array.isArray(payload.items) ? payload.items : [];
-  const events = items
-    .filter((item) => item.status === 'confirmed' && item.start?.dateTime && item.end?.dateTime)
-    .map((item) => {
-      const summary = item.summary || '';
-      const mappedType = resolveType(summary);
-      return {
+      const summary = typeof item.summary === 'string' ? item.summary.trim() : '';
+      collected.push({
         id: item.id,
         title: summary,
-        type: mappedType,
-        start: item.start.dateTime,
-        end: item.end.dateTime,
-        startMs: Date.parse(item.start.dateTime),
-        endMs: Date.parse(item.end.dateTime),
-      };
-    })
-    .filter((event) => event.type && Number.isFinite(event.startMs) && Number.isFinite(event.endMs));
+        type: resolveType(summary),
+        start,
+        end,
+        startMs,
+        endMs,
+      });
+    });
 
-  calendarCache.set(cacheKey, { stamp, value: events, bounds: [timeMin, timeMax] });
-  return events;
+    pageToken = payload.nextPageToken;
+  } while (pageToken);
+
+  eventsCache.set(cacheKey, { stamp: Date.now(), value: collected });
+  return collected;
 }
 
-function resolveType(summary) {
-  if (typeof summary !== 'string' || !summary.trim()) return null;
-  const normalized = normalizeCalendarText(summary);
-  if (!/^(resa|reservation)\b/.test(normalized)) {
-    return null;
-  }
-  for (const { keyword, label } of TYPE_RULES) {
-    const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const keywordPattern = new RegExp(`\\b${escaped}\\b`);
-    if (keywordPattern.test(normalized)) {
-      return label;
-    }
-  }
-  return null;
-}
-
-function normalizeCalendarText(text) {
-  if (typeof text !== 'string') return '';
-  return text
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase();
-}
-
-async function fetchSeries(name, { force = false } = {}) {
+async function fetchPm25Series({ force = false } = {}) {
   const stamp = Date.now();
-  const entry = seriesCache.get(name);
-  if (!force && entry && stamp - entry.stamp < SERIES_TTL) {
-    return entry.value;
+  if (!force && pm25Cache.value && stamp - pm25Cache.stamp < PM25_TTL) {
+    return pm25Cache.value;
   }
 
-  const url = new URL(`data/${name}.json`, window.location.href);
-  if (force) {
-    url.searchParams.set('_', String(Date.now()));
+  let base = window.location.origin;
+  if (!base || base === 'null') {
+    base = window.location.href;
   }
+  const url = new URL(PM25_ENDPOINT, base);
+  if (force) {
+    url.searchParams.set('_', String(stamp));
+  }
+
   const response = await fetchWithTimeout(url.toString(), {
     cache: force ? 'no-store' : 'default',
   });
-
   if (!response.ok) {
-    if (name === 'co2' && response.status === 404) {
-      seriesCache.set(name, { stamp, value: null });
-      return null;
-    }
-    throw new Error(`Failed to load series ${name} (${response.status})`);
+    throw new Error(`PM2.5 request failed (${response.status})`);
   }
 
   const raw = await response.json();
@@ -309,168 +214,153 @@ async function fetchSeries(name, { force = false } = {}) {
       }, [])
     : [];
 
-  seriesCache.set(name, { stamp: Date.now(), value: parsed });
+  parsed.sort((a, b) => a[0] - b[0]);
+  pm25Cache = { stamp: Date.now(), value: parsed };
   return parsed;
 }
 
-function fetchWithTimeout(resource, options = {}, timeout = FETCH_TIMEOUT) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  const opts = { ...options, signal: controller.signal };
-  return fetch(resource, opts).finally(() => clearTimeout(timer));
-}
-
-function selectRelevantEvent(events, now) {
+function renderEvents({ events, pm25Series, timeMin, timeMax }) {
+  const now = new Date();
   const nowMs = now.getTime();
-  for (let index = events.length - 1; index >= 0; index -= 1) {
-    const event = events[index];
-    if (event.endMs < nowMs) {
-      return event;
+  const timeMinMs = Date.parse(timeMin);
+  const timeMaxMs = Date.parse(timeMax);
+
+  const running = [];
+  const finished = [];
+
+  events.forEach((event) => {
+    if (!Number.isFinite(event.startMs) || !Number.isFinite(event.endMs)) return;
+    if (event.endMs < timeMinMs || event.startMs > timeMaxMs) return;
+
+    if (event.startMs <= nowMs && nowMs < event.endMs && event.startMs >= timeMinMs && event.startMs <= timeMaxMs) {
+      running.push({ ...event, state: 'live' });
+      return;
     }
-  }
-  return null;
-}
 
-function getEventState(event, now) {
-  const nowMs = now.getTime();
-  if (nowMs < event.startMs) return 'upcoming';
-  if (nowMs < event.endMs) return 'live';
-  return 'final';
+    if (event.endMs <= nowMs && event.endMs >= timeMinMs && event.endMs <= timeMaxMs) {
+      finished.push({ ...event, state: 'final' });
+    }
+  });
+
+  running.sort((a, b) => a.endMs - b.endMs);
+  finished.sort((a, b) => b.endMs - a.endMs);
+
+  const ordered = [...running, ...finished];
+  if (!ordered.length) {
+    setCellMessage('—', 'empty');
+    return;
+  }
+
+  cell.classList.remove('is-loading');
+  cell.dataset.state = 'ready';
+  cell.setAttribute('aria-busy', 'false');
+  cell.innerHTML = '';
+
+  const pmSeries = Array.isArray(pm25Series) ? pm25Series : [];
+
+  ordered.forEach((event) => {
+    const row = document.createElement('div');
+    row.className = 'activity-risk-row';
+
+    const meta = document.createElement('div');
+    meta.className = 'activity-risk-meta';
+
+    const badge = document.createElement('span');
+    badge.className = 'activity-risk-type';
+    badge.textContent = formatType(event.type);
+    meta.appendChild(badge);
+
+    const hours = document.createElement('span');
+    hours.className = 'activity-risk-hours';
+    hours.textContent = formatRange(event.startMs, event.endMs);
+    meta.appendChild(hours);
+
+    const status = document.createElement('span');
+    status.className = 'activity-risk-status';
+    status.dataset.state = event.state;
+    status.textContent = event.state === 'live' ? 'En cours' : 'Terminé';
+    meta.appendChild(status);
+
+    row.appendChild(meta);
+
+    const title = document.createElement('span');
+    title.className = 'activity-risk-title';
+    const displayTitle = event.title || 'Sans titre';
+    title.textContent = displayTitle;
+    title.title = displayTitle;
+    row.appendChild(title);
+
+    const spark = document.createElement('span');
+    spark.className = 'activity-risk-sparkline';
+    const endCut = Math.min(event.endMs, nowMs);
+    const segment = sliceSeries(pmSeries, event.startMs, endCut);
+    const stats = computeSnapshot(segment);
+    const tooltip = stats ? buildSparklineTitle(stats) : null;
+    const hasData = renderSparkline(spark, segment);
+    if (tooltip) {
+      spark.title = tooltip;
+    } else {
+      spark.title = 'Aucune mesure disponible';
+    }
+    if (!hasData) {
+      spark.textContent = '—';
+    }
+    row.appendChild(spark);
+
+    const snapshot = document.createElement('span');
+    snapshot.className = 'activity-risk-snapshot';
+    if (stats && tooltip) {
+      snapshot.textContent = formatSnapshot(stats);
+      snapshot.title = tooltip;
+    } else {
+      snapshot.textContent = 'N/A';
+      snapshot.title = 'Aucune mesure disponible';
+    }
+    row.appendChild(snapshot);
+
+    cell.appendChild(row);
+  });
 }
 
 function sliceSeries(series, startMs, endMs) {
   if (!Array.isArray(series) || !series.length) return [];
-  return series.filter(([ts]) => ts >= startMs && ts <= endMs);
+  return series.filter(([ts]) => ts >= startMs && ts < endMs);
 }
 
-function renderEvent({ event, state, pm25Segment, co2Segment }) {
-  cell.classList.remove('is-loading');
-  cell.setAttribute('aria-busy', 'false');
-  cell.dataset.state = state;
-  cell.innerHTML = '';
+function computeSnapshot(segment) {
+  if (!Array.isArray(segment) || !segment.length) return null;
+  const values = segment
+    .map(([, value]) => Number(value))
+    .filter((value) => Number.isFinite(value));
+  if (!values.length) return null;
 
-  const row = document.createElement('div');
-  row.className = 'activity-risk-row';
-
-  const meta = document.createElement('div');
-  meta.className = 'activity-risk-meta';
-  const typeEl = document.createElement('span');
-  typeEl.className = 'activity-risk-type';
-  typeEl.textContent = formatType(event.type);
-  if (event.title) {
-    typeEl.title = event.title;
-  }
-  meta.appendChild(typeEl);
-
-  const hoursEl = document.createElement('span');
-  hoursEl.className = 'activity-risk-hours';
-  hoursEl.textContent = formatRange(event.startMs, event.endMs);
-  meta.appendChild(hoursEl);
-
-  const statusEl = document.createElement('span');
-  statusEl.className = 'activity-risk-status';
-  statusEl.dataset.state = state;
-  statusEl.textContent = state === 'upcoming'
-    ? 'En attente de mesures'
-    : state === 'live'
-      ? 'Mesures en cours'
-      : 'Mesures terminées';
-  meta.appendChild(statusEl);
-
-  row.appendChild(meta);
-
-  const hasPm = Array.isArray(pm25Segment) && pm25Segment.length;
-  const hasCo2 = Array.isArray(co2Segment) && co2Segment.length;
-  const primarySegment = hasPm ? pm25Segment : co2Segment;
-  const primaryMetric = hasPm ? 'pm25' : hasCo2 ? 'co2' : null;
-  let statsTooltip = '';
-
-  if (state !== 'upcoming') {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'activity-risk-sparkline-btn';
-    button.setAttribute('aria-label', 'Voir les mesures détaillées de la période');
-
-    const spark = document.createElement('span');
-    spark.className = 'activity-risk-sparkline';
-    button.appendChild(spark);
-
-    const hasData = renderSparkline(spark, primarySegment);
-    if (!hasData) {
-      button.disabled = true;
-      button.textContent = 'N/A';
-    } else {
-      if (primaryMetric === 'co2') {
-        button.style.color = '#5E5862';
-      }
-      button.addEventListener('click', () => {
-        openModal({ event, state, pm25Segment, co2Segment });
-      });
-    }
-
-    if (state === 'final') {
-      const pmStats = computeStats(pm25Segment, THRESHOLDS.pm25.alert);
-      const co2Stats = computeStats(co2Segment, THRESHOLDS.co2.alert);
-      statsTooltip = buildTooltip(pmStats, co2Stats);
-      if (statsTooltip) {
-        button.title = statsTooltip;
-      }
-    } else if (state === 'live') {
-      button.title = 'Cliquer pour explorer les mesures en direct';
-    }
-
-    row.appendChild(button);
-  }
-
-  cell.appendChild(row);
-
-  const footnote = document.createElement('p');
-  footnote.className = 'activity-risk-footnote';
-  if (state === 'upcoming') {
-    footnote.textContent = 'L’activité commencera bientôt. Les mesures s’afficheront dès les premières valeurs.';
-  } else if (state === 'live') {
-    footnote.textContent = 'Actualisation automatique toutes les 60 s. Cliquez pour ouvrir le graphe détaillé.';
-  } else {
-    footnote.textContent = 'Cliquez sur la sparkline pour consulter le détail des mesures enregistrées.';
-    if (statsTooltip) {
-      footnote.title = statsTooltip;
-    }
-  }
-  cell.appendChild(footnote);
+  const sum = values.reduce((acc, value) => acc + value, 0);
+  const mean = sum / values.length;
+  const max = Math.max(...values);
+  const warnPct = (values.filter((value) => value > WARN_THRESHOLD).length / values.length) * 100;
+  const alertPct = (values.filter((value) => value > ALERT_THRESHOLD).length / values.length) * 100;
+  return { mean, max, warnPct, alertPct };
 }
 
-function formatType(type) {
-  if (!type) return '—';
-  return type.charAt(0).toUpperCase() + type.slice(1);
-}
-
-function formatRange(startMs, endMs) {
-  const fmt = new Intl.DateTimeFormat('fr-FR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: TIMEZONE,
-  });
-  return `${fmt.format(new Date(startMs))}–${fmt.format(new Date(endMs))}`;
-}
-
-function renderSparkline(container, series) {
+function renderSparkline(container, segment) {
   container.innerHTML = '';
-  if (!Array.isArray(series) || !series.length) {
-    container.textContent = 'N/A';
+  if (!Array.isArray(segment) || !segment.length) {
     return false;
   }
 
-  const data = downsample(series, 300);
-  const values = data.map(([, value]) => value);
+  const data = downsample(segment, 300);
+  const values = data.map(([, value]) => Number(value));
+  if (!values.length) {
+    return false;
+  }
   const min = Math.min(...values);
   const max = Math.max(...values);
   if (!Number.isFinite(min) || !Number.isFinite(max)) {
-    container.textContent = 'N/A';
     return false;
   }
 
-  const width = 90;
-  const height = 32;
+  const width = 72;
+  const height = 28;
   const pad = 2;
   const range = max - min;
 
@@ -483,7 +373,11 @@ function renderSparkline(container, series) {
     })
     .join(' ');
 
-  container.innerHTML = `<svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="presentation"><path d="${path}" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+  container.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" role="presentation" aria-hidden="true">
+      <path d="${path}" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linejoin="round" stroke-linecap="round"></path>
+    </svg>
+  `;
   return true;
 }
 
@@ -491,267 +385,100 @@ function downsample(series, maxPoints) {
   if (!Array.isArray(series) || series.length <= maxPoints) {
     return Array.isArray(series) ? series.slice() : [];
   }
-  const bucketSize = Math.ceil(series.length / maxPoints);
+  const stride = Math.ceil(series.length / maxPoints);
   const result = [];
-  for (let i = 0; i < series.length; i += bucketSize) {
-    const bucket = series.slice(i, i + bucketSize);
-    const last = bucket[bucket.length - 1];
-    if (last) result.push(last);
+  for (let i = 0; i < series.length; i += stride) {
+    result.push(series[i]);
+  }
+  const last = series[series.length - 1];
+  if (result[result.length - 1] !== last) {
+    result.push(last);
   }
   return result;
 }
 
-function computeStats(series, alertThreshold) {
-  if (!Array.isArray(series) || !series.length) return null;
-  const values = series.map(([, value]) => value).filter((value) => Number.isFinite(value));
-  if (!values.length) return null;
-  const mean = values.reduce((acc, value) => acc + value, 0) / values.length;
-  const max = Math.max(...values);
-  const pct = values.filter((value) => value > alertThreshold).length / values.length * 100;
-  return { mean, max, pct };
+function formatSnapshot(stats) {
+  return `moy ${stats.mean.toFixed(1)} µg/m³ · max ${stats.max.toFixed(1)} µg/m³ · >15 ${stats.warnPct.toFixed(0)}% · >35 ${stats.alertPct.toFixed(0)}%`;
 }
 
-function buildTooltip(pmStats, co2Stats) {
-  const parts = [];
-  if (pmStats) {
-    parts.push(`PM₂.₅ moy ${pmStats.mean.toFixed(1)} ${THRESHOLDS.pm25.unit} · max ${pmStats.max.toFixed(1)} ${THRESHOLDS.pm25.unit} · >${THRESHOLDS.pm25.alert} ${THRESHOLDS.pm25.unit} ${pmStats.pct.toFixed(0)}%`);
-  }
-  if (co2Stats) {
-    parts.push(`CO₂ moy ${co2Stats.mean.toFixed(0)} ${THRESHOLDS.co2.unit} · max ${co2Stats.max.toFixed(0)} ${THRESHOLDS.co2.unit} · >${THRESHOLDS.co2.alert} ${THRESHOLDS.co2.unit} ${co2Stats.pct.toFixed(0)}%`);
-  }
-  return parts.join('\n');
+function buildSparklineTitle(stats) {
+  return `PM₂.₅ moy ${stats.mean.toFixed(1)} µg/m³ · max ${stats.max.toFixed(1)} µg/m³ · >15 µg/m³ ${stats.warnPct.toFixed(0)}% · >35 µg/m³ ${stats.alertPct.toFixed(0)}%`;
 }
 
-let modalEl = null;
-let modalChartEl = null;
-let modalTitleEl = null;
-let modalSubtitleEl = null;
-let modalLegendEl = null;
-let modalPlot = null;
-let uPlotLoader = null;
-
-function ensureModal() {
-  if (modalEl) return;
-  modalEl = document.createElement('div');
-  modalEl.className = 'activity-modal';
-  modalEl.setAttribute('role', 'dialog');
-  modalEl.setAttribute('aria-modal', 'true');
-  modalEl.setAttribute('aria-hidden', 'true');
-  modalEl.innerHTML = `
-    <div class="activity-modal__backdrop" data-dismiss></div>
-    <div class="activity-modal__dialog">
-      <button type="button" class="activity-modal__close" aria-label="Fermer">×</button>
-      <div class="activity-modal__header">
-        <h4 class="activity-modal__title"></h4>
-        <p class="activity-modal__subtitle"></p>
-      </div>
-      <div class="activity-modal__chart"></div>
-      <div class="activity-modal__legend"></div>
-    </div>
-  `;
-  document.body.appendChild(modalEl);
-
-  modalChartEl = modalEl.querySelector('.activity-modal__chart');
-  modalTitleEl = modalEl.querySelector('.activity-modal__title');
-  modalSubtitleEl = modalEl.querySelector('.activity-modal__subtitle');
-  modalLegendEl = modalEl.querySelector('.activity-modal__legend');
-
-  const closeBtn = modalEl.querySelector('.activity-modal__close');
-  const backdrop = modalEl.querySelector('[data-dismiss]');
-  closeBtn.addEventListener('click', closeModal);
-  backdrop.addEventListener('click', closeModal);
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && modalEl.classList.contains('is-open')) {
-      closeModal();
-    }
-  });
-}
-
-function openModal({ event, state, pm25Segment, co2Segment }) {
-  ensureModal();
-  modalTitleEl.textContent = `${formatType(event.type)} – ${state === 'live' ? 'En direct' : 'Bilan'}`;
-  modalSubtitleEl.textContent = `${formatRange(event.startMs, event.endMs)}`;
-
-  modalLegendEl.innerHTML = '';
-  modalChartEl.innerHTML = '';
-
-  const datasets = [];
-  if (Array.isArray(pm25Segment) && pm25Segment.length) {
-    datasets.push({ key: 'pm25', segment: pm25Segment, config: THRESHOLDS.pm25, color: '#424341' });
-  }
-  if (Array.isArray(co2Segment) && co2Segment.length) {
-    datasets.push({ key: 'co2', segment: co2Segment, config: THRESHOLDS.co2, color: '#5E5862' });
-  }
-
-  if (!datasets.length) {
-    modalChartEl.innerHTML = '<p style="text-align:center;color:var(--secondary);">Données indisponibles sur ce créneau.</p>';
-    modalLegendEl.textContent = '';
-  } else {
-    const { timestamps, values } = alignSeries(datasets.map((d) => d.segment));
-    const totalRange = (timestamps[timestamps.length - 1] || 0) - (timestamps[0] || 0);
-    const formatter = createAxisFormatter(totalRange);
-
-    const axes = [
-      {
-        stroke: 'rgba(84, 88, 88, 0.85)',
-        grid: { stroke: 'rgba(84, 88, 88, 0.12)' },
-        values: (u, ticks) => ticks.map((tick) => formatter(tick * 1000)),
-      },
-    ];
-    const scales = { x: { time: true } };
-    const series = [
-      {},
-    ];
-
-    datasets.forEach((dataset, index) => {
-      const scaleName = dataset.key;
-      const axis = {
-        scale: scaleName,
-        stroke: index === 0 ? 'rgba(66, 67, 65, 0.8)' : 'rgba(94, 88, 98, 0.85)',
-        grid: index === 0 ? { stroke: 'rgba(84, 88, 88, 0.08)' } : { show: false },
-        values: (u, ticks) => ticks.map((tick) => `${Math.round(tick)}`),
-      };
-      if (index > 0) axis.side = 1;
-      axes.push(axis);
-      scales[scaleName] = { auto: true };
-
-      series.push({
-        label: dataset.config.label,
-        stroke: dataset.color,
-        width: 2,
-        spanGaps: true,
-        scale: scaleName,
-        value: (u, value) => (value == null ? '—' : `${value.toFixed(scaleName === 'pm25' ? 1 : 0)} ${dataset.config.unit}`),
-      });
-    });
-
-    const xValues = timestamps.map((ts) => ts / 1000);
-    const data = [xValues, ...values];
-
-    ensureUPlot().then((uPlot) => {
-      if (!modalEl.classList.contains('is-open')) return;
-      if (modalPlot) {
-        modalPlot.destroy();
-        modalPlot = null;
-      }
-      modalChartEl.innerHTML = '';
-      const width = modalChartEl.clientWidth || modalChartEl.offsetWidth || 600;
-      const height = modalChartEl.clientHeight || 320;
-      modalPlot = new uPlot(
-        {
-          width,
-          height,
-          scales,
-          axes,
-          series,
-          legend: { show: false },
-          cursor: {
-            drag: {
-              x: true,
-              y: false,
-            },
-          },
-        },
-        data,
-        modalChartEl,
-      );
-    }).catch((error) => {
-      console.error('[Activité/Risque] uPlot load failed', error);
-      modalChartEl.innerHTML = '<p style="text-align:center;color:var(--secondary);">Impossible de charger le graphe.</p>';
-    });
-
-    modalLegendEl.innerHTML = datasets
-      .map((dataset) => {
-        const stats = computeStats(dataset.segment, dataset.config.alert);
-        const statText = stats
-          ? `moy ${formatStatValue(stats.mean, dataset.key)} · max ${formatStatValue(stats.max, dataset.key)} · >${dataset.config.alert} ${dataset.config.unit} ${stats.pct.toFixed(0)}%`
-          : '';
-        return `<span><i style="background:${dataset.color}"></i>${dataset.config.label}${statText ? ` · ${statText}` : ''}</span>`;
-      })
-      .join('');
-  }
-
-  modalEl.classList.add('is-open');
-  modalEl.setAttribute('aria-hidden', 'false');
-  document.body.style.overflow = 'hidden';
-}
-
-function closeModal() {
-  if (!modalEl) return;
-  modalEl.classList.remove('is-open');
-  modalEl.setAttribute('aria-hidden', 'true');
-  document.body.style.overflow = '';
-  if (modalPlot) {
-    modalPlot.destroy();
-    modalPlot = null;
+function formatType(type) {
+  switch (type) {
+    case 'laser':
+      return 'Laser';
+    case 'ouverture':
+      return 'Ouverture';
+    case 'fermeture':
+      return 'Fermeture';
+    default:
+      return 'Autre';
   }
 }
 
-function alignSeries(segments) {
-  const stamps = new Set();
-  segments.forEach((segment) => {
-    if (Array.isArray(segment)) {
-      segment.forEach(([ts]) => {
-        stamps.add(ts);
-      });
-    }
-  });
-  const timestamps = Array.from(stamps).sort((a, b) => a - b);
-  const values = segments.map((segment) => {
-    if (!Array.isArray(segment) || !segment.length) {
-      return timestamps.map(() => null);
-    }
-    const map = new Map(segment.map(([ts, value]) => [ts, value]));
-    return timestamps.map((ts) => (map.has(ts) ? map.get(ts) : null));
-  });
-  return { timestamps, values };
-}
-
-function createAxisFormatter(rangeMs) {
-  if (rangeMs > 36 * 3600_000) {
-    const fmt = new Intl.DateTimeFormat('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: TIMEZONE,
-    });
-    return (valueMs) => fmt.format(new Date(valueMs));
-  }
-  const fmt = new Intl.DateTimeFormat('fr-FR', {
+function formatRange(startMs, endMs) {
+  const formatter = new Intl.DateTimeFormat('fr-FR', {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: TIMEZONE,
   });
-  return (valueMs) => fmt.format(new Date(valueMs));
+  return `${formatter.format(new Date(startMs))}–${formatter.format(new Date(endMs))}`;
 }
 
-function ensureUPlot() {
-  if (window.uPlot) {
-    return Promise.resolve(window.uPlot);
-  }
-  if (!uPlotLoader) {
-    uPlotLoader = new Promise((resolve, reject) => {
-      const css = document.createElement('link');
-      css.rel = 'stylesheet';
-      css.href = 'https://cdn.jsdelivr.net/npm/uplot@1.6.27/dist/uPlot.min.css';
-      document.head.appendChild(css);
-
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/uplot@1.6.27/dist/uPlot.iife.min.js';
-      script.async = true;
-      script.onload = () => resolve(window.uPlot);
-      script.onerror = () => reject(new Error('uPlot failed to load'));
-      document.head.appendChild(script);
-    });
-  }
-  return uPlotLoader;
+function resolveType(summary) {
+  if (typeof summary !== 'string' || !summary.trim()) return 'autre';
+  const normalized = normalize(summary);
+  const simplified = normalized.replace(/[-_]+/g, ' ');
+  const collapsed = simplified.replace(/\s+/g, ' ');
+  if (/\b(trotec|lasersaur)\b/.test(collapsed)) return 'laser';
+  if (/open\s*lab/.test(collapsed) || simplified.includes('openlab')) return 'ouverture';
+  if (collapsed.includes('lab ferme')) return 'fermeture';
+  return 'autre';
 }
 
-function formatStatValue(value, key) {
-  if (!Number.isFinite(value)) return '—';
-  if (key === 'pm25') {
-    return `${value.toFixed(1)} ${THRESHOLDS.pm25.unit}`;
+function normalize(text) {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function computeWindow(mode) {
+  const endISO = endOfTodayParisISO();
+  const endMs = Date.parse(endISO);
+  const day = 86400e3;
+  if (mode === 'debut') {
+    return [septFirstParisISO(), endISO];
   }
-  return `${Math.round(value)} ${THRESHOLDS.co2.unit}`;
+  const span = mode === '24h' ? day : mode === '7j' ? 7 * day : 30 * day;
+  return [new Date(endMs - span).toISOString(), endISO];
+}
+
+function endOfTodayParisISO() {
+  const nowParis = new Date(new Date().toLocaleString('en-US', { timeZone: TIMEZONE }));
+  const endParis = new Date(
+    nowParis.getFullYear(),
+    nowParis.getMonth(),
+    nowParis.getDate(),
+    23,
+    59,
+    59,
+    0,
+  );
+  return new Date(endParis.getTime() - endParis.getTimezoneOffset() * 60000).toISOString();
+}
+
+function septFirstParisISO() {
+  const nowParis = new Date(new Date().toLocaleString('en-US', { timeZone: TIMEZONE }));
+  const startParis = new Date(nowParis.getFullYear(), 8, 1, 0, 0, 0, 0);
+  return new Date(startParis.getTime() - startParis.getTimezoneOffset() * 60000).toISOString();
+}
+
+function fetchWithTimeout(resource, options = {}, timeout = FETCH_TIMEOUT) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  const opts = { ...options, signal: controller.signal };
+  return fetch(resource, opts).finally(() => clearTimeout(timer));
 }
