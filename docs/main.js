@@ -89,14 +89,6 @@ async function peaksList(startISO, endISO) {
   return data || [];
 }
 
-async function summaryByTag(startISO, endISO) {
-  const { data, error } = await sb.rpc('summary_by_tag_range', {
-    start_ts: startISO, end_ts: endISO
-  });
-  if (error) throw error;
-  return data || [];
-}
-
 /* ---------- metric animation ---------- */
 
 function createMetricAnimator() {
@@ -543,28 +535,6 @@ async function reloadDashboard() {
   }
 
   plotRange(currentRange);
-
-  const summaryRange = DATASETS['7j'] ?? DATASETS['debut'];
-  const summaryStartISO = summaryRange?.rangeStartISO ?? earliest.toISOString();
-  const summaryEndISO = summaryRange?.rangeEndISO ?? latest.toISOString();
-  const sum = await summaryByTag(summaryStartISO, summaryEndISO);
-  const tbody = document.getElementById('tbl-acts');
-  tbody.innerHTML = '';
-  const filtered = sum.filter((row) => {
-    const tag = typeof row.tag === 'string' ? row.tag.toLowerCase() : '';
-    return tag && !tag.includes('example.csv');
-  });
-  filtered.sort((a,b)=>( (b.peaks/(b.duration||1)) - (a.peaks/(a.duration||1)) ));
-  filtered.forEach(r=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${r.tag}</td>
-      <td class="text-right tabular-nums">${Math.round(r.duration||0)}</td>
-      <td class="text-right tabular-nums">${r.peaks||0}</td>
-      <td class="text-right tabular-nums">${Math.round(((r.peaks||0) / (r.duration||1)))}</td>
-    `;
-    tbody.appendChild(tr);
-  });
 
 }
 
