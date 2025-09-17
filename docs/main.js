@@ -386,7 +386,7 @@ function getCachedActivities(range) {
 }
 
 async function fetchActivities(range) {
-  const { data, error } = await sb.rpc('app.activities_site', { range });
+  const { data, error } = await sb.rpc('activities_site', { p_range: range });
   if (error) throw error;
   return Array.isArray(data) ? data : [];
 }
