@@ -16,6 +16,36 @@ const REFRESH_INTERVAL = 60_000;
 const CALENDAR_TTL = 5 * 60_000;
 const SERIES_TTL = 5 * 60_000;
 const FETCH_TIMEOUT = 5000;
+const VALID_RANGES = new Set(['24h', '7j', '30j', 'debut']);
+
+function endOfTodayParisISO() {
+  const nowParis = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  const endParis = new Date(
+    nowParis.getFullYear(),
+    nowParis.getMonth(),
+    nowParis.getDate(),
+    23,
+    59,
+    59,
+    0,
+  );
+  return new Date(endParis.getTime() - endParis.getTimezoneOffset() * 60000).toISOString();
+}
+
+function septFirstParisISO() {
+  const nowParis = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  const startParis = new Date(nowParis.getFullYear(), 8, 1, 0, 0, 0, 0);
+  return new Date(startParis.getTime() - startParis.getTimezoneOffset() * 60000).toISOString();
+}
+
+function computeWindow(mode) {
+  const endISO = endOfTodayParisISO();
+  const endMs = Date.parse(endISO);
+  const day = 86400e3;
+  if (mode === 'debut') return [septFirstParisISO(), endISO];
+  const span = mode === '24h' ? day : mode === '7j' ? 7 * day : 30 * day;
+  return [new Date(endMs - span).toISOString(), endISO];
+}
 
 const cell = document.getElementById('cell-activite');
 if (!cell) {
@@ -31,11 +61,16 @@ function init() {
     return;
   }
 
+  setupRangeButtons();
+  if (!currentBounds) {
+    currentBounds = computeWindow(currentMode);
+  }
   cell.classList.add('is-loading');
   cell.dataset.state = 'loading';
   cell.setAttribute('aria-busy', 'true');
+  cell.textContent = 'Chargement…';
 
-  refresh().finally(() => {
+  refresh({ mode: currentMode, timeBounds: currentBounds, forceEvents: true }).finally(() => {
     setInterval(() => {
       refresh({ forceSeries: currentState === 'live' });
     }, REFRESH_INTERVAL);
@@ -44,16 +79,81 @@ function init() {
 
 let isFetching = false;
 let currentState = 'loading';
+let currentMode = '24h';
+let currentBounds = null;
+let pendingRefresh = null;
 
-const calendarCache = { stamp: 0, value: null };
+const calendarCache = new Map();
 const seriesCache = new Map();
 
-async function refresh({ forceSeries = false } = {}) {
-  if (isFetching) return;
+function setupRangeButtons() {
+  const buttons = Array.from(document.querySelectorAll('[data-range]'));
+  if (!buttons.length) return;
+
+  const validButtons = buttons.filter((btn) => VALID_RANGES.has(btn.dataset.range));
+  if (!validButtons.length) return;
+
+  const activeButton = validButtons.find((btn) => btn.classList.contains('active'));
+  const initialButton = activeButton || validButtons[0];
+  const initialMode = initialButton?.dataset.range;
+  if (initialMode && VALID_RANGES.has(initialMode)) {
+    currentMode = initialMode;
+    currentBounds = computeWindow(currentMode);
+  }
+  setButtonsActive(currentMode);
+
+  validButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.range;
+      if (!mode || !VALID_RANGES.has(mode)) return;
+      currentMode = mode;
+      currentBounds = computeWindow(mode);
+      setButtonsActive(mode);
+      refresh({
+        mode,
+        timeBounds: currentBounds,
+        forceSeries: currentState === 'live',
+        forceEvents: true,
+      });
+    });
+  });
+}
+
+function setButtonsActive(mode) {
+  document.querySelectorAll('[data-range]').forEach((btn) => {
+    if (btn.dataset.range === mode) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+}
+
+async function refresh({ forceSeries = false, mode = currentMode, timeBounds, forceEvents = false } = {}) {
+  const boundsArg = Array.isArray(timeBounds) ? timeBounds.slice(0, 2) : undefined;
+  if (isFetching) {
+    pendingRefresh = {
+      forceSeries,
+      mode,
+      timeBounds: boundsArg,
+      forceEvents,
+    };
+    return;
+  }
   isFetching = true;
   try {
+    currentMode = mode;
+    const bounds = boundsArg || currentBounds || computeWindow(currentMode);
+    currentBounds = bounds;
+    const [timeMin, timeMax] = bounds;
+
+    cell.classList.add('is-loading');
+    cell.dataset.state = 'loading';
+    cell.setAttribute('aria-busy', 'true');
+    cell.textContent = 'Chargement…';
+
     const now = new Date();
-    const events = await fetchCalendarEvents(now, { force: false });
+    const events = await fetchCalendarEvents({ mode: currentMode, timeMin, timeMax, force: forceEvents });
     if (!events.length) {
       setCellMessage('—', 'empty');
       currentState = 'empty';
@@ -89,6 +189,11 @@ async function refresh({ forceSeries = false } = {}) {
     setCellMessage('N/A', 'error');
   } finally {
     isFetching = false;
+    if (pendingRefresh) {
+      const next = pendingRefresh;
+      pendingRefresh = null;
+      refresh(next);
+    }
   }
 }
 
@@ -99,19 +204,23 @@ function setCellMessage(message, state) {
   cell.textContent = message;
 }
 
-async function fetchCalendarEvents(now, { force = false } = {}) {
+async function fetchCalendarEvents({ mode, timeMin, timeMax, force = false } = {}) {
   const stamp = Date.now();
-  if (!force && calendarCache.value && stamp - calendarCache.stamp < CALENDAR_TTL) {
-    return calendarCache.value;
+  const cacheKey = mode || `${timeMin}|${timeMax}`;
+  const cached = calendarCache.get(cacheKey);
+  if (!force && cached && stamp - cached.stamp < CALENDAR_TTL) {
+    if (cached.bounds && cached.bounds[0] === timeMin && cached.bounds[1] === timeMax) {
+      return cached.value;
+    }
   }
 
-  const timeMin = new Date(now.getTime() - 12 * 3600_000).toISOString();
-  const timeMax = new Date(now.getTime() + 7 * 86400_000).toISOString();
   const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`);
   url.searchParams.set('singleEvents', 'true');
   url.searchParams.set('orderBy', 'startTime');
-  url.searchParams.set('timeMin', timeMin);
-  url.searchParams.set('timeMax', timeMax);
+  url.searchParams.set('maxResults', '250');
+  url.searchParams.set('fields', 'items(id,summary,start,end,status)');
+  if (timeMin) url.searchParams.set('timeMin', timeMin);
+  if (timeMax) url.searchParams.set('timeMax', timeMax);
   url.searchParams.set('key', API_KEY);
 
   const response = await fetchWithTimeout(url.toString());
@@ -137,8 +246,7 @@ async function fetchCalendarEvents(now, { force = false } = {}) {
     })
     .filter((event) => event.type && Number.isFinite(event.startMs) && Number.isFinite(event.endMs));
 
-  calendarCache.value = events;
-  calendarCache.stamp = stamp;
+  calendarCache.set(cacheKey, { stamp, value: events, bounds: [timeMin, timeMax] });
   return events;
 }
 

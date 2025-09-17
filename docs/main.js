@@ -588,9 +588,9 @@ function plotOne(containerId, serie, title, xRange) {
 
 const RANGE_TITLES = {
   '24h': 'Aujourd’hui (24 h)',
-  '7d': '7 jours',
-  '30d': '30 jours',
-  'all': 'Depuis le début'
+  '7j': '7 jours',
+  '30j': '30 jours',
+  'debut': 'Depuis le début'
 };
 let currentRange = '24h';
 const DATASETS = {};
@@ -600,9 +600,11 @@ function setActiveRange(range) {
     if (btn.dataset.range === range) {
       btn.classList.add('tw-btn-primary');
       btn.classList.remove('tw-btn-outline');
+      btn.classList.add('active');
     } else {
       btn.classList.add('tw-btn-outline');
       btn.classList.remove('tw-btn-primary');
+      btn.classList.remove('active');
     }
   });
 }
@@ -656,9 +658,9 @@ async function reloadDashboard() {
 
   const rangeBounds = {
     '24h': { start: clampStart(latest.subtract(24, 'hour')), end: latest },
-    '7d':  { start: clampStart(latest.subtract(7, 'day')),  end: latest },
-    '30d': { start: clampStart(latest.subtract(30, 'day')), end: latest },
-    'all': { start: earliest, end: latest }
+    '7j':  { start: clampStart(latest.subtract(7, 'day')),  end: latest },
+    '30j': { start: clampStart(latest.subtract(30, 'day')), end: latest },
+    'debut': { start: earliest, end: latest }
   };
 
   const entries = await Promise.all(
@@ -735,7 +737,7 @@ async function reloadDashboard() {
 
   plotRange(currentRange);
 
-  const summaryRange = DATASETS['7d'] ?? DATASETS['all'];
+  const summaryRange = DATASETS['7j'] ?? DATASETS['debut'];
   const summaryStartISO = summaryRange?.rangeStartISO ?? earliest.toISOString();
   const summaryEndISO = summaryRange?.rangeEndISO ?? latest.toISOString();
   const sum = await summaryByTag(summaryStartISO, summaryEndISO);
