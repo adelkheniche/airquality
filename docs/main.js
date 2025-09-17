@@ -30,11 +30,6 @@ window.addEventListener('aq:highlight', (event) => {
   applyChartHighlight();
 });
 
-const metricAnimator = createMetricAnimator();
-metricAnimator.register('kpi-peaks');
-metricAnimator.register('kpi-last');
-metricAnimator.register('kpi-pct');
-
 // Limitation de la fréquence des requêtes
 const MIN_INTERVAL_MS = 2 * 60 * 1000;   // ≤ 30 appels/h en exploration
 const PASSIVE_INTERVAL_MS = 4 * 60 * 1000; // ≈15 appels/h en affichage passif
@@ -89,61 +84,23 @@ async function peaksList(startISO, endISO) {
   return data || [];
 }
 
-/* ---------- metric animation ---------- */
+/* ---------- helpers ---------- */
 
-function createMetricAnimator() {
-  const map = new Map();
-  let activeStamp = null;
-
-  function normalizeValue(value) {
-    if (value === null || value === undefined) return '–';
-    if (typeof value === 'number') {
-      return Number.isFinite(value) ? value.toString() : '–';
-    }
-    const str = String(value);
-    const trimmed = str.trim();
-    return trimmed.length ? trimmed : '–';
+function formatKpiValue(value) {
+  if (value === null || value === undefined) return '–';
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value.toString() : '–';
   }
-
-  function register(id) {
-    const el = document.getElementById(id);
-    if (!el) return null;
-    const entry = {
-      el,
-      lastStamp: null,
-      value: normalizeValue(el.textContent || '–')
-    };
-    el.textContent = entry.value;
-    map.set(id, entry);
-    return entry;
-  }
-
-  function beginCycle(stamp) {
-    if (stamp == null) return;
-    activeStamp = stamp;
-  }
-
-  function setValue(id, value, stamp) {
-    const entry = map.get(id);
-    if (!entry) return;
-    if (stamp != null && activeStamp != null && stamp !== activeStamp) {
-      return;
-    }
-    const text = normalizeValue(value);
-    if (stamp != null && entry.lastStamp === stamp && entry.value === text) {
-      return;
-    }
-    entry.lastStamp = stamp ?? activeStamp;
-    if (entry.value !== text || stamp == null) {
-      entry.value = text;
-      entry.el.textContent = text;
-    }
-  }
-
-  return { register, beginCycle, setValue };
+  const str = String(value);
+  const trimmed = str.trim();
+  return trimmed.length ? trimmed : '–';
 }
 
-/* ---------- helpers ---------- */
+function setKpiValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = formatKpiValue(value);
+}
 
 function toParisISO(d) {
   // d = JS Date or ISO; we just pass through, RPC expects UTC ISO.
@@ -217,13 +174,13 @@ function renderSummary(id, serie) {
   wrap.appendChild(chip(`PM₂.₅ maximum : ${Math.round(max25)} µg/m³`));
 }
 
-function updateKpiCards(stats, datasetStamp) {
+function updateKpiCards(stats) {
   const totalRaw = Number(stats?.total);
   const pctRaw = Number(stats?.pct);
   const totalValue = Number.isFinite(totalRaw) ? Math.round(totalRaw).toString() : '–';
   const pctValue = Number.isFinite(pctRaw) ? `${Math.round(pctRaw)}%` : '–';
-  metricAnimator.setValue('kpi-peaks', totalValue, datasetStamp);
-  metricAnimator.setValue('kpi-pct', pctValue, datasetStamp);
+  setKpiValue('kpi-peaks', totalValue);
+  setKpiValue('kpi-pct', pctValue);
   setPctPill(Number.isFinite(pctRaw) ? pctRaw : 0);
 }
 
@@ -412,7 +369,7 @@ function plotRange(range) {
   setActiveRange(range);
   document.getElementById('chart-title').textContent = RANGE_TITLES[range];
   renderSummary('chart-summary', ds.data);
-  updateKpiCards(ds.kpis, ds.datasetStamp);
+  updateKpiCards(ds.kpis);
   renderPeaksList(ds.peaks);
 
   const drawChart = () => {
@@ -447,10 +404,7 @@ async function reloadDashboard() {
   }
   const earliest = dayjs(extent.min ?? extent.max).utc();
   const latest = dayjs(extent.max).utc();
-  const datasetStamp = latest.valueOf();
   const clampStart = candidate => (candidate.isBefore(earliest) ? earliest : candidate);
-
-  metricAnimator.beginCycle(datasetStamp);
 
   const rangeBounds = {
     '24h': { start: clampStart(latest.subtract(24, 'hour')), end: latest },
@@ -476,7 +430,6 @@ async function reloadDashboard() {
         peaks: sortedPeaks,
         rangeStartISO: startISO,
         rangeEndISO: endISO,
-        datasetStamp
       }];
     })
   );
@@ -494,7 +447,7 @@ async function reloadDashboard() {
   if (lastVal) {
     const val = lastVal.pm25 != null ? Math.round(lastVal.pm25) : null;
     const displayVal = val != null ? val.toString() : '–';
-    metricAnimator.setValue('kpi-last', displayVal, datasetStamp);
+    setKpiValue('kpi-last', displayVal);
     applySeverityDataset(valueEl, classifyPm25Severity(lastVal.pm25));
     const measuredAt = dayjs(lastVal.ts).tz(tz);
     const measuredAtStr = measuredAt.format('HH:mm').replace(':', ' h ');
@@ -525,7 +478,7 @@ async function reloadDashboard() {
       }
     }
   } else {
-    metricAnimator.setValue('kpi-last', '–', datasetStamp);
+    setKpiValue('kpi-last', '–');
     applySeverityDataset(valueEl, null);
     if (timeEl) timeEl.textContent = 'Pas de relevé';
     if (arrowEl) {

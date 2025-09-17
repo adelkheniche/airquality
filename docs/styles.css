@@ -257,14 +257,6 @@ h3 {
   font-weight: 600;
   letter-spacing: -0.02em;
   color: var(--text);
-  position: relative;
-  display: inline-flex;
-  flex-direction: column;
-  align-items: flex-end;
-  justify-content: flex-start;
-  min-width: var(--kpi-fixed-min-ch, 3.5ch);
-  overflow: hidden;
-  backface-visibility: hidden;
 }
 
 .kpi-value[data-severity="good"],
@@ -280,18 +272,6 @@ h3 {
 .kpi-value[data-severity="risk"],
 #kpi-last[data-severity="risk"] {
   color: var(--danger);
-}
-
-#kpi-peaks {
-  --kpi-fixed-min-ch: 5ch;
-}
-
-#kpi-last {
-  --kpi-fixed-min-ch: 4ch;
-}
-
-#kpi-pct {
-  --kpi-fixed-min-ch: 4.5ch;
 }
 
 .kpi-unit {
