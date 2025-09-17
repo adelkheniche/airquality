@@ -4,4 +4,4 @@ window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXB
 window.GCAL_CALENDAR_ID = "sji17cho35m52lhecchvsfqn08@group.calendar.google.com";
 window.GCAL_PUBLIC_ICAL_URL = "https://calendar.google.com/calendar/ical/sji17cho35m52lhecchvsfqn08%40group.calendar.google.com/public/basic.ics";
 window.GCAL_PUBLIC_EMBED_URL = "https://calendar.google.com/calendar/embed?src=sji17cho35m52lhecchvsfqn08%40group.calendar.google.com&ctz=Europe%2FParis";
-window.GCAL_BROWSER_KEY = window.GCAL_BROWSER_KEY || "";
+window.GCAL_BROWSER_KEY = window.GCAL_BROWSER_KEY || "AIzaSyCXGUZKhvSGcs2xBpDbCx9XA9kxiofB6QY";
