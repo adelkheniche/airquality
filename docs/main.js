@@ -198,7 +198,8 @@ function createMetricAnimator() {
       const slotHeight = slot.getBoundingClientRect().height;
       let distance = prevHeight || slotHeight || this.el.getBoundingClientRect().height || 0;
       if (!distance) distance = this.el.offsetHeight || 0;
-      const duration = Math.round(randomBetween(this.durationRange[0], this.durationRange[1]));
+      const [minDuration, maxDuration] = this.durationRange;
+      const duration = Math.round(randomBetween(minDuration, maxDuration));
       const start = performance.now();
       this.isAnimating = true;
       this.animationStart = start;
