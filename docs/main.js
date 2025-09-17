@@ -12,6 +12,24 @@ const WHO_LINE = 15; // µg/m³
 
 const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 
+const HIGHLIGHT_FILL = 'rgba(255, 59, 48, 0.18)';
+const HIGHLIGHT_BORDER = 'rgba(255, 59, 48, 0.8)';
+let highlightDetail = null;
+
+window.addEventListener('aq:highlight', (event) => {
+  const normalized = normalizeHighlightDetail(event?.detail);
+  highlightDetail = normalized;
+  if (event?.detail?.source === 'activity-cell' && event?.detail?.scroll) {
+    requestAnimationFrame(() => {
+      const chart = document.getElementById('chart-main');
+      if (chart && typeof chart.scrollIntoView === 'function') {
+        chart.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  }
+  applyChartHighlight();
+});
+
 const rollEasing = cubicBezier(0.2, 0.6, 0.2, 1);
 
 const metricAnimator = createMetricAnimator();
@@ -586,6 +604,11 @@ function plotOne(containerId, serie, title, xRange) {
 
   Plotly.react(container, traces, layout, config);
 
+  if (container.layout && Array.isArray(container.layout.shapes)) {
+    container._baseShapes = cloneShapes(container.layout.shapes);
+  }
+  applyChartHighlight();
+
   // Adjust Y-axis on zoom/pan to fit visible data with 10% headroom
   if (container.removeAllListeners) container.removeAllListeners('plotly_relayout');
   container.on('plotly_relayout', ev => {
@@ -615,6 +638,53 @@ function plotOne(containerId, serie, title, xRange) {
       Plotly.relayout(container, { 'yaxis.range': [0, padded] });
     }
   });
+}
+
+function normalizeHighlightDetail(detail) {
+  if (!detail || typeof detail !== 'object') return null;
+  const startMs = Date.parse(detail.start);
+  const endMs = Date.parse(detail.end);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
+  if (startMs === endMs) return null;
+  const start = new Date(Math.min(startMs, endMs));
+  const end = new Date(Math.max(startMs, endMs));
+  return {
+    startISO: start.toISOString(),
+    endISO: end.toISOString(),
+  };
+}
+
+function applyChartHighlight() {
+  const container = document.getElementById('chart-main');
+  if (!container || !container.layout) return;
+
+  const baseShapes = Array.isArray(container._baseShapes)
+    ? cloneShapes(container._baseShapes)
+    : cloneShapes(container.layout.shapes || []);
+  container._baseShapes = baseShapes;
+
+  const shapes = cloneShapes(baseShapes);
+  if (highlightDetail) {
+    shapes.push({
+      type: 'rect',
+      xref: 'x',
+      yref: 'paper',
+      x0: highlightDetail.startISO,
+      x1: highlightDetail.endISO,
+      y0: 0,
+      y1: 1,
+      fillcolor: HIGHLIGHT_FILL,
+      line: { color: HIGHLIGHT_BORDER, width: 1 },
+      opacity: 1,
+      layer: 'above',
+    });
+  }
+
+  Plotly.relayout(container, { shapes });
+}
+
+function cloneShapes(shapes = []) {
+  return shapes.map((shape) => JSON.parse(JSON.stringify(shape)));
 }
 
 const RANGE_TITLES = {
