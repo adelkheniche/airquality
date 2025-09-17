@@ -433,23 +433,54 @@ function cubicBezier(mX1, mY1, mX2, mY2) {
 /* ---------- helpers ---------- */
 
 function toParisISO(d) {
-  // d = JS Date or ISO; we just pass through, RPC expects UTC ISO. 
+  // d = JS Date or ISO; we just pass through, RPC expects UTC ISO.
   // Inputs are already in local -> we create ISO UTC from date inputs.
   return new Date(d).toISOString();
 }
 
+function classifyPm25Severity(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  if (numeric < 12) return 'good';
+  if (numeric < 15) return 'warn';
+  return 'risk';
+}
+
+function applySeverityDataset(el, severity) {
+  if (!el) return;
+  if (severity) {
+    el.dataset.severity = severity;
+  } else {
+    delete el.dataset.severity;
+  }
+}
+
 function setPctPill(pct) {
   const pctPill = document.getElementById('kpi-pct-pill');
-  if (!pctPill) return;
+  const pctIcon = document.getElementById('kpi-pct-icon');
+  let state = 'ok';
   if (pct > 20) {
-    pctPill.className = 'status-pill status-pill--risk';
-    pctPill.textContent = 'À risque';
+    state = 'risk';
   } else if (pct > 10) {
-    pctPill.className = 'status-pill status-pill--warn';
-    pctPill.textContent = 'À surveiller';
+    state = 'warn';
   } else {
-    pctPill.className = 'status-pill status-pill--ok';
-    pctPill.textContent = 'OK';
+    state = 'ok';
+  }
+  if (pctPill) {
+    if (state === 'risk') {
+      pctPill.className = 'status-pill status-pill--risk';
+      pctPill.textContent = 'À risque';
+    } else if (state === 'warn') {
+      pctPill.className = 'status-pill status-pill--warn';
+      pctPill.textContent = 'À surveiller';
+    } else {
+      pctPill.className = 'status-pill status-pill--ok';
+      pctPill.textContent = 'OK';
+    }
+    pctPill.dataset.state = state;
+  }
+  if (pctIcon) {
+    pctIcon.dataset.state = state;
   }
 }
 
@@ -693,11 +724,13 @@ async function reloadDashboard() {
   const prevVal = s24[s24.length - 2];
   const timeEl = document.getElementById('kpi-last-time');
   const arrowEl = document.getElementById('kpi-last-arrow');
+  const valueEl = document.getElementById('kpi-last');
 
   if (lastVal) {
     const val = lastVal.pm25 != null ? Math.round(lastVal.pm25) : null;
     const displayVal = val != null ? val.toString() : '–';
     metricAnimator.setValue('kpi-last', displayVal, datasetStamp);
+    applySeverityDataset(valueEl, classifyPm25Severity(lastVal.pm25));
     const measuredAt = dayjs(lastVal.ts).tz(tz);
     const measuredAtStr = measuredAt.format('HH:mm').replace(':', ' h ');
     if (timeEl) timeEl.textContent = `µg/m³ à ${measuredAtStr}`;
@@ -728,6 +761,7 @@ async function reloadDashboard() {
     }
   } else {
     metricAnimator.setValue('kpi-last', '–', datasetStamp);
+    applySeverityDataset(valueEl, null);
     if (timeEl) timeEl.textContent = 'Pas de relevé';
     if (arrowEl) {
       arrowEl.textContent = '';
