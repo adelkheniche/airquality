@@ -3,6 +3,7 @@
 
 const SUPABASE_URL = 'https://your-project-ref.supabase.co';
 const SUPABASE_ANON_KEY = 'your-anon-public-key-here';
+const GCAL_BROWSER_KEY = 'your-google-calendar-browser-key';
 
 // Optional: Custom configuration
 const CONFIG = {
