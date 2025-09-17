@@ -567,3 +567,109 @@ h3 {
   letter-spacing: 0.08em;
 }
 
+.activities-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.activity-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(55, 79, 78, 0.12);
+  background: rgba(255, 255, 255, 0.45);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  line-height: 1.4;
+  appearance: none;
+  -webkit-appearance: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.activity-row:hover {
+  background: rgba(55, 79, 78, 0.08);
+  border-color: rgba(55, 79, 78, 0.24);
+}
+
+.activity-row:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(55, 79, 78, 0.25);
+}
+
+.activity-row.is-active,
+.activity-row[aria-pressed="true"] {
+  border-color: #FF3B30;
+  background: rgba(255, 59, 48, 0.12);
+  box-shadow: 0 0 0 2px rgba(255, 59, 48, 0.18);
+}
+
+.activity-badge {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(55, 79, 78, 0.16);
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.activity-time {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--secondary);
+  min-width: 104px;
+}
+
+.activity-title {
+  flex: 1 1 160px;
+  font-weight: 600;
+  color: var(--text);
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.activity-person {
+  font-weight: 500;
+  color: var(--secondary);
+}
+
+.activity-sparkline {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 80px;
+}
+
+.activity-sparkline-svg {
+  width: 72px;
+  height: 24px;
+}
+
+.activity-sparkline-placeholder {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  font-size: 1.25rem;
+  color: var(--caption);
+}
+
+.activities-message {
+  font-size: 0.9375rem;
+  color: var(--secondary);
+}
+

@@ -14,11 +14,16 @@ const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 
 const HIGHLIGHT_FILL = 'rgba(255, 59, 48, 0.18)';
 const HIGHLIGHT_BORDER = 'rgba(255, 59, 48, 0.8)';
+const ACTIVITIES_CACHE_TTL = 60 * 1000;
+const activitiesCache = Object.create(null);
 let highlightDetail = null;
+let activitiesActiveId = null;
+let activitiesRequestToken = 0;
 
 window.addEventListener('aq:highlight', (event) => {
   const normalized = normalizeHighlightDetail(event?.detail);
   highlightDetail = normalized;
+  setActiveActivityRow(event?.detail?.eventId ?? null);
   applyChartHighlight();
 });
 
@@ -331,6 +336,311 @@ function cloneShapes(shapes = []) {
   return shapes.map((shape) => JSON.parse(JSON.stringify(shape)));
 }
 
+function setActiveActivityRow(eventId) {
+  const normalizedId = eventId != null ? String(eventId) : null;
+  activitiesActiveId = normalizedId;
+  const rows = document.querySelectorAll('#cell-activite [data-event-id]');
+  rows.forEach((row) => {
+    const isActive = normalizedId != null && row.dataset.eventId === normalizedId;
+    row.classList.toggle('is-active', isActive);
+    row.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+}
+
+async function loadActivitiesForRange(range, { preferCache = true } = {}) {
+  const container = document.getElementById('cell-activite');
+  if (!container || !range) return;
+
+  const cached = preferCache ? getCachedActivities(range) : null;
+  if (cached) {
+    renderActivitiesList(cached);
+    return;
+  }
+
+  const token = ++activitiesRequestToken;
+  container.textContent = 'Chargement…';
+
+  try {
+    const data = await fetchActivities(range);
+    if (token !== activitiesRequestToken) {
+      return;
+    }
+    activitiesCache[range] = { timestamp: Date.now(), data };
+    renderActivitiesList(data);
+  } catch (error) {
+    if (token !== activitiesRequestToken) {
+      return;
+    }
+    console.error('Impossible de charger les activités :', error);
+    container.textContent = 'N/A';
+  }
+}
+
+function getCachedActivities(range) {
+  const entry = activitiesCache[range];
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > ACTIVITIES_CACHE_TTL) {
+    return null;
+  }
+  return entry.data;
+}
+
+async function fetchActivities(range) {
+  const url = `${window.SUPABASE_URL}/rest/v1/rpc/app.activities_site`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: window.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${window.SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({ range }),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const payload = await response.json();
+    return Array.isArray(payload) ? payload : [];
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function renderActivitiesList(events) {
+  const container = document.getElementById('cell-activite');
+  if (!container) return;
+
+  container.innerHTML = '';
+  const list = document.createElement('div');
+  list.className = 'activities-list';
+
+  const sorted = sortActivities(events || []);
+  if (!sorted.length) {
+    const empty = document.createElement('p');
+    empty.className = 'activities-message';
+    empty.textContent = 'Aucune activité sur la période.';
+    container.appendChild(empty);
+    setActiveActivityRow(null);
+    return;
+  }
+
+  const ids = new Set(
+    sorted
+      .map(evt => evt?.event_id ?? evt?.eventId)
+      .filter(id => id != null)
+      .map(id => String(id))
+  );
+  if (activitiesActiveId != null && !ids.has(activitiesActiveId)) {
+    activitiesActiveId = null;
+  }
+
+  sorted.forEach(evt => {
+    const row = createActivityRow(evt);
+    list.appendChild(row);
+  });
+
+  container.appendChild(list);
+  setActiveActivityRow(activitiesActiveId);
+}
+
+function sortActivities(events) {
+  const now = dayjs();
+  const ongoing = [];
+  const finished = [];
+
+  (events || []).forEach(evt => {
+    const end = dayjs(evt?.end);
+    if (end.isValid() && end.isAfter(now)) {
+      ongoing.push(evt);
+    } else if (!end.isValid()) {
+      ongoing.push(evt);
+    } else {
+      finished.push(evt);
+    }
+  });
+
+  ongoing.sort((a, b) => dayjs(a?.start).valueOf() - dayjs(b?.start).valueOf());
+  finished.sort((a, b) => dayjs(b?.end).valueOf() - dayjs(a?.end).valueOf());
+
+  return ongoing.concat(finished);
+}
+
+function createActivityRow(evt) {
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'activity-row';
+
+  const eventIdRaw = evt?.event_id ?? evt?.eventId;
+  if (eventIdRaw != null) {
+    row.dataset.eventId = String(eventIdRaw);
+  } else {
+    delete row.dataset.eventId;
+  }
+  row.setAttribute('aria-pressed', 'false');
+
+  const badge = document.createElement('span');
+  badge.className = 'activity-badge';
+  badge.textContent = (evt?.type || 'Activité').toString();
+
+  const time = document.createElement('span');
+  time.className = 'activity-time tabular-nums';
+  time.textContent = formatActivityTimeRange(evt?.start, evt?.end);
+
+  const titleWrap = document.createElement('span');
+  titleWrap.className = 'activity-title';
+  titleWrap.textContent = evt?.title || 'Sans titre';
+  if (evt?.person) {
+    const person = document.createElement('span');
+    person.className = 'activity-person';
+    person.textContent = `• ${evt.person}`;
+    titleWrap.appendChild(person);
+  }
+
+  const sparklineWrap = document.createElement('span');
+  sparklineWrap.className = 'activity-sparkline';
+
+  const timeLabel = buildActivityTimeLabel(evt?.start, evt?.end);
+  const pm25 = evt?.pm25 || {};
+  const points = Array.isArray(pm25.points_sample)
+    ? pm25.points_sample.map(Number).filter(v => Number.isFinite(v))
+    : [];
+
+  if (points.length) {
+    const svg = createSparkline(points, pm25, timeLabel);
+    sparklineWrap.appendChild(svg);
+  } else {
+    const placeholder = document.createElement('span');
+    placeholder.className = 'activity-sparkline-placeholder activity-sparkline--empty';
+    placeholder.textContent = '—';
+    const aria = buildSparklineLabel(pm25, timeLabel);
+    placeholder.setAttribute('role', 'img');
+    placeholder.setAttribute('aria-label', aria);
+    placeholder.title = aria;
+    sparklineWrap.appendChild(placeholder);
+  }
+
+  const handleSelect = () => {
+    if (eventIdRaw == null) return;
+    const detail = {
+      eventId: eventIdRaw,
+      start: evt?.start,
+      end: evt?.end,
+      title: evt?.title,
+      person: evt?.person,
+      type: evt?.type,
+      machine: evt?.machine,
+    };
+    activitiesActiveId = String(eventIdRaw);
+    setActiveActivityRow(eventIdRaw);
+    window.dispatchEvent(new CustomEvent('aq:highlight', { detail }));
+    const chart = document.getElementById('chart-main');
+    if (chart && typeof chart.scrollIntoView === 'function') {
+      chart.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  row.addEventListener('click', handleSelect);
+
+  row.appendChild(badge);
+  row.appendChild(time);
+  row.appendChild(titleWrap);
+  row.appendChild(sparklineWrap);
+
+  return row;
+}
+
+function buildActivityTimeLabel(start, end) {
+  const range = formatActivityTimeRange(start, end);
+  return range === '—' ? 'Heures inconnues' : `${range} (Europe/Paris)`;
+}
+
+const NUMBER_FORMAT_1 = new Intl.NumberFormat('fr-FR', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+});
+
+const NUMBER_FORMAT_0 = new Intl.NumberFormat('fr-FR', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
+function buildSparklineLabel(pm25 = {}, timeLabel = '') {
+  const mean = formatNumberForLabel(pm25.mean, NUMBER_FORMAT_1);
+  const max = formatNumberForLabel(pm25.max, NUMBER_FORMAT_1);
+  const pct15 = formatNumberForLabel(pm25.pct_over_15, NUMBER_FORMAT_0);
+  const pct35 = formatNumberForLabel(pm25.pct_over_35, NUMBER_FORMAT_0);
+  const timePart = timeLabel ? `, fenêtre ${timeLabel}` : '';
+  return `PM2.5 ${mean} µg/m³, max ${max}, >15 : ${pct15}% (>35 : ${pct35}%)${timePart}`;
+}
+
+function formatNumberForLabel(value, formatter) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return '—';
+  return formatter.format(numeric);
+}
+
+function createSparkline(points, pm25, timeLabel) {
+  const width = 72;
+  const height = 24;
+  const values = points.length > 1 ? points : points.concat(points);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  const step = values.length > 1 ? width / (values.length - 1) : width;
+
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('width', String(width));
+  svg.setAttribute('height', String(height));
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('class', 'activity-sparkline-svg');
+  svg.setAttribute('role', 'img');
+
+  const aria = buildSparklineLabel(pm25, timeLabel);
+  svg.setAttribute('aria-label', aria);
+  svg.setAttribute('title', aria);
+
+  const titleEl = document.createElementNS(svgNS, 'title');
+  titleEl.textContent = aria;
+  svg.appendChild(titleEl);
+
+  const pathData = values.map((val, index) => {
+    const x = index * step;
+    const ratio = range === 0 ? 0.5 : (val - min) / range;
+    const y = height - (ratio * (height - 4) + 2);
+    const cmd = index === 0 ? 'M' : 'L';
+    return `${cmd}${x.toFixed(2)} ${y.toFixed(2)}`;
+  }).join(' ');
+
+  const path = document.createElementNS(svgNS, 'path');
+  path.setAttribute('d', pathData);
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', COLORS.pm25);
+  path.setAttribute('stroke-width', '1');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+
+  svg.appendChild(path);
+  return svg;
+}
+
+function formatActivityTimeRange(startISO, endISO) {
+  const start = dayjs(startISO).tz('Europe/Paris');
+  const end = dayjs(endISO).tz('Europe/Paris');
+  const startValid = start.isValid();
+  const endValid = end.isValid();
+
+  if (!startValid && !endValid) return '—';
+  const startStr = startValid ? start.format('HH:mm') : '—';
+  const endStr = endValid ? end.format('HH:mm') : '—';
+  return `${startStr}–${endStr}`;
+}
+
 const RANGE_TITLES = {
   '24h': 'Aujourd’hui (24 h)',
   '7j': '7 jours',
@@ -374,11 +684,16 @@ function plotRange(range) {
   }
 }
 
+function handleRangeChange(range) {
+  plotRange(range);
+  loadActivitiesForRange(range);
+}
+
 /* ---------- main flow ---------- */
 
 async function loadAll() {
   document.querySelectorAll('[data-range]').forEach(btn => {
-    btn.addEventListener('click', () => plotRange(btn.dataset.range));
+    btn.addEventListener('click', () => handleRangeChange(btn.dataset.range));
   });
   setActiveRange(currentRange);
 
@@ -480,6 +795,8 @@ async function reloadDashboard() {
   }
 
   plotRange(currentRange);
+
+  await loadActivitiesForRange(currentRange);
 
 }
 
