@@ -386,29 +386,9 @@ function getCachedActivities(range) {
 }
 
 async function fetchActivities(range) {
-  const url = `${window.SUPABASE_URL}/rest/v1/rpc/app.activities_site`;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: window.SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${window.SUPABASE_ANON_KEY}`,
-      },
-      body: JSON.stringify({ range }),
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-    const payload = await response.json();
-    return Array.isArray(payload) ? payload : [];
-  } finally {
-    clearTimeout(timeoutId);
-  }
+  const { data, error } = await sb.rpc('app.activities_site', { range });
+  if (error) throw error;
+  return Array.isArray(data) ? data : [];
 }
 
 function renderActivitiesList(events) {
@@ -680,7 +660,7 @@ function plotRange(range) {
   if (typeof requestAnimationFrame === 'function') {
     requestAnimationFrame(drawChart);
   } else {
-    setTimeout(drawChart, 0);
+    drawChart();
   }
 }
 
@@ -720,26 +700,23 @@ async function reloadDashboard() {
     'debut': { start: earliest, end: latest }
   };
 
-  const entries = await Promise.all(
-    Object.entries(rangeBounds).map(async ([range, bounds]) => {
-      const startISO = bounds.start.toISOString();
-      const endISO = bounds.end.toISOString();
-      const [serie, kpiData, peaksData] = await Promise.all([
-        series(startISO, endISO),
-        kpis(startISO, endISO),
-        peaksList(startISO, endISO)
-      ]);
-      const sortedPeaks = (peaksData || []).slice().sort((a, b) => new Date(b.ts) - new Date(a.ts));
-      return [range, {
-        data: serie,
-        xRange: [bounds.start.tz(tz).format(), bounds.end.tz(tz).format()],
-        kpis: kpiData,
-        peaks: sortedPeaks,
-        rangeStartISO: startISO,
-        rangeEndISO: endISO,
-      }];
-    })
-  );
+  const entries = [];
+  for (const [range, bounds] of Object.entries(rangeBounds)) {
+    const startISO = bounds.start.toISOString();
+    const endISO = bounds.end.toISOString();
+    const serie = await series(startISO, endISO);
+    const kpiData = await kpis(startISO, endISO);
+    const peaksData = await peaksList(startISO, endISO);
+    const sortedPeaks = (peaksData || []).slice().sort((a, b) => new Date(b.ts) - new Date(a.ts));
+    entries.push([range, {
+      data: serie,
+      xRange: [bounds.start.tz(tz).format(), bounds.end.tz(tz).format()],
+      kpis: kpiData,
+      peaks: sortedPeaks,
+      rangeStartISO: startISO,
+      rangeEndISO: endISO,
+    }]);
+  }
 
   Object.keys(DATASETS).forEach(key => { delete DATASETS[key]; });
   entries.forEach(([range, ds]) => { DATASETS[range] = ds; });

@@ -1,12 +1,8 @@
 // Configuration for Air Quality Dashboard
 // Copy this file to config.js and update with your Supabase credentials
 
-const SUPABASE_URL = 'https://your-project-ref.supabase.co';
-const SUPABASE_ANON_KEY = 'your-anon-public-key-here';
-const GCAL_BROWSER_KEY = 'your-google-calendar-browser-key';
-const GCAL_CALENDAR_ID = 'your-calendar-id@group.calendar.google.com';
-const GCAL_PUBLIC_ICAL_URL = 'https://calendar.google.com/calendar/ical/your-calendar-id%40group.calendar.google.com/public/basic.ics';
-const GCAL_PUBLIC_EMBED_URL = 'https://calendar.google.com/calendar/embed?src=your-calendar-id%40group.calendar.google.com&ctz=Europe%2FParis';
+window.SUPABASE_URL = 'https://your-project-ref.supabase.co';
+window.SUPABASE_ANON_KEY = 'your-anon-public-key-here';
 
 // Optional: Custom configuration
 const CONFIG = {
