@@ -567,6 +567,14 @@ h3 {
   letter-spacing: 0.08em;
 }
 
+.activities-scroller {
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: hidden;
+  scrollbar-gutter: stable both-edges;
+}
+
 .activities-list {
   display: flex;
   flex-direction: column;
