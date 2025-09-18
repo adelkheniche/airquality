@@ -684,22 +684,33 @@ h3 {
 .activities-filter-panel {
   width: 100%;
   border-radius: 18px;
-  border: 1px solid rgba(55, 79, 78, 0.18);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 28px 54px -36px rgba(55, 79, 78, 0.45);
-  padding: 16px 18px;
+  border: 1px solid transparent;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
   overflow: hidden;
   max-height: 0;
   opacity: 0;
   transform: translateY(-6px);
   pointer-events: none;
-  transition: max-height 0.32s ease, opacity 0.28s ease, transform 0.28s ease;
+  transition:
+    max-height 0.32s ease,
+    opacity 0.28s ease,
+    transform 0.28s ease,
+    padding 0.28s ease,
+    background-color 0.28s ease,
+    border-color 0.28s ease,
+    box-shadow 0.28s ease;
 }
 
 .activities-controls.is-open .activities-filter-panel {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+  padding: 16px 18px;
+  border-color: rgba(55, 79, 78, 0.18);
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 28px 54px -36px rgba(55, 79, 78, 0.45);
 }
 
 .activities-filter-fields {
