@@ -384,15 +384,26 @@ function plotOne(containerId, serie, title, xRange) {
 
 function normalizeHighlightDetail(detail) {
   if (!detail || typeof detail !== 'object') return null;
-  const startMs = Date.parse(detail.start);
-  const endMs = Date.parse(detail.end);
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null;
-  if (startMs === endMs) return null;
-  const start = new Date(Math.min(startMs, endMs));
-  const end = new Date(Math.max(startMs, endMs));
+
+  const startInput = detail.start ?? null;
+  const endInput = detail.end ?? null;
+  if (startInput == null || endInput == null) return null;
+
+  const start = dayjs(startInput);
+  const end = dayjs(endInput);
+  if (!start.isValid() || !end.isValid()) return null;
+
+  const startValue = start.valueOf();
+  const endValue = end.valueOf();
+  if (!Number.isFinite(startValue) || !Number.isFinite(endValue)) return null;
+  if (startValue === endValue) return null;
+
+  const [min, max] = startValue <= endValue ? [start, end] : [end, start];
+  const tz = 'Europe/Paris';
+
   return {
-    startISO: start.toISOString(),
-    endISO: end.toISOString(),
+    startISO: min.tz(tz).format(),
+    endISO: max.tz(tz).format(),
   };
 }
 
