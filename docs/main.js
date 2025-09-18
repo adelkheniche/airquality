@@ -707,7 +707,7 @@ function buildActivitiesControls(options = []) {
       return;
     }
     if (isOpen) {
-      panel.style.maxHeight = '';
+      panel.style.maxHeight = 'none';
     } else {
       panel.hidden = true;
       panel.style.maxHeight = '0px';
