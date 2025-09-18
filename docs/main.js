@@ -347,6 +347,23 @@ function setActiveActivityRow(eventId) {
   });
 }
 
+function focusChartOnEventDay(chart, startISO, endISO) {
+  if (!chart || typeof Plotly === 'undefined' || typeof Plotly.relayout !== 'function') return;
+
+  const tz = 'Europe/Paris';
+  const start = dayjs(startISO);
+  const end = dayjs(endISO);
+  const reference = start.isValid() ? start : end;
+  if (!reference.isValid()) return;
+
+  const dayStart = reference.tz(tz).startOf('day');
+  const dayEnd = dayStart.endOf('day');
+
+  Plotly.relayout(chart, {
+    'xaxis.range': [dayStart.format(), dayEnd.format()]
+  });
+}
+
 async function loadActivitiesForRange(range, { preferCache = true } = {}) {
   const container = document.getElementById('cell-activite');
   if (!container || !range) return;
@@ -522,6 +539,7 @@ function createActivityRow(evt) {
     if (chart && typeof chart.scrollIntoView === 'function') {
       chart.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+    focusChartOnEventDay(chart, detail.start, detail.end);
   };
 
   row.addEventListener('click', handleSelect);
