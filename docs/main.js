@@ -468,6 +468,43 @@ function focusChartOnEventDay(chart, startISO, endISO) {
   });
 }
 
+function scrollIntoViewIfNotVisible(element, options = {}) {
+  if (!element || typeof element.getBoundingClientRect !== 'function' || typeof element.scrollIntoView !== 'function') {
+    return;
+  }
+
+  const rect = element.getBoundingClientRect();
+  const doc = typeof document !== 'undefined' ? document : null;
+  const viewportHeight = typeof window !== 'undefined'
+    ? (window.innerHeight || doc?.documentElement?.clientHeight || 0)
+    : (doc?.documentElement?.clientHeight || 0);
+  const viewportWidth = typeof window !== 'undefined'
+    ? (window.innerWidth || doc?.documentElement?.clientWidth || 0)
+    : (doc?.documentElement?.clientWidth || 0);
+
+  const marginFromOptions = Number(options.margin);
+  const marginY = Number.isFinite(options.marginY)
+    ? Math.max(Number(options.marginY), 0)
+    : (Number.isFinite(marginFromOptions) && marginFromOptions > 0 ? marginFromOptions : 0);
+  const marginX = Number.isFinite(options.marginX)
+    ? Math.max(Number(options.marginX), 0)
+    : marginY;
+
+  const completelyAbove = rect.bottom <= -marginY;
+  const completelyBelow = rect.top >= viewportHeight + marginY;
+  const completelyLeft = rect.right <= -marginX;
+  const completelyRight = rect.left >= viewportWidth + marginX;
+
+  if (!(completelyAbove || completelyBelow || completelyLeft || completelyRight)) {
+    return;
+  }
+
+  const behavior = options.behavior || 'smooth';
+  const block = options.block || 'nearest';
+  const inline = options.inline || 'nearest';
+  element.scrollIntoView({ behavior, block, inline });
+}
+
 async function loadActivitiesForRange(range, { preferCache = true } = {}) {
   const container = document.getElementById('cell-activite');
   if (!container || !range) return;
@@ -998,9 +1035,7 @@ function createActivityRow(evt) {
     window.dispatchEvent(new CustomEvent('aq:highlight', { detail }));
     const chart = document.getElementById('chart-main');
     const chartCard = chart?.closest('.card') || chart;
-    if (chartCard && typeof chartCard.scrollIntoView === 'function') {
-      chartCard.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-    }
+    scrollIntoViewIfNotVisible(chartCard, { behavior: 'smooth', block: 'nearest', inline: 'nearest', margin: 48 });
     focusChartOnEventDay(chart, detail.start, detail.end);
   };
 
