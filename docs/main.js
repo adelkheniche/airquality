@@ -583,11 +583,47 @@ function buildActivitiesControls(options = []) {
   const wrap = document.createElement('div');
   wrap.className = 'activities-controls';
 
+  const toggle = document.createElement('button');
+  toggle.type = 'button';
+  toggle.className = 'activities-filter-toggle';
+  toggle.setAttribute('aria-expanded', 'false');
+  toggle.setAttribute('aria-controls', 'activities-filter-panel');
+
+  const toggleIcon = document.createElement('span');
+  toggleIcon.className = 'activities-filter-toggle-icon';
+  toggleIcon.setAttribute('aria-hidden', 'true');
+  toggleIcon.innerHTML = `
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M4 6h16" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      <path d="M7 12h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+      <path d="M10 18h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
+    </svg>
+  `;
+  toggle.appendChild(toggleIcon);
+
+  const toggleText = document.createElement('span');
+  toggleText.className = 'activities-filter-toggle-text';
+  toggleText.textContent = 'Filtrer';
+  toggle.appendChild(toggleText);
+
+  wrap.appendChild(toggle);
+
+  const panel = document.createElement('div');
+  panel.id = 'activities-filter-panel';
+  panel.className = 'activities-filter-panel';
+  panel.setAttribute('aria-hidden', 'true');
+  panel.hidden = true;
+  panel.style.maxHeight = '0px';
+
+  const fields = document.createElement('div');
+  fields.className = 'activities-filter-fields';
+  panel.appendChild(fields);
+
   const label = document.createElement('label');
   label.className = 'activities-sort-label';
   label.setAttribute('for', ACTIVITIES_FILTER_SELECT_ID);
   label.textContent = 'Filtrer par activité';
-  wrap.appendChild(label);
+  fields.appendChild(label);
 
   const select = document.createElement('select');
   select.id = ACTIVITIES_FILTER_SELECT_ID;
@@ -622,7 +658,66 @@ function buildActivitiesControls(options = []) {
     renderActivitiesList(activitiesLatestState.events, activitiesLatestState.range);
   });
 
-  wrap.appendChild(select);
+  fields.appendChild(select);
+  wrap.appendChild(panel);
+
+  let isOpen = false;
+
+  const schedule = (fn) => {
+    if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(fn));
+    } else {
+      setTimeout(fn, 0);
+    }
+  };
+
+  const setOpenState = (open) => {
+    const nextState = Boolean(open);
+    if (nextState === isOpen) {
+      return;
+    }
+
+    isOpen = nextState;
+    wrap.classList.toggle('is-open', isOpen);
+    toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    panel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+
+    if (isOpen) {
+      panel.hidden = false;
+      panel.style.maxHeight = '0px';
+      schedule(() => {
+        panel.style.maxHeight = `${panel.scrollHeight}px`;
+      });
+    } else {
+      const currentHeight = panel.scrollHeight;
+      panel.hidden = false;
+      panel.style.maxHeight = `${currentHeight}px`;
+      schedule(() => {
+        panel.style.maxHeight = '0px';
+      });
+    }
+  };
+
+  toggle.addEventListener('click', () => {
+    setOpenState(!isOpen);
+  });
+
+  panel.addEventListener('transitionend', (event) => {
+    if (event?.propertyName !== 'max-height') {
+      return;
+    }
+    if (isOpen) {
+      panel.style.maxHeight = '';
+    } else {
+      panel.hidden = true;
+      panel.style.maxHeight = '0px';
+    }
+  });
+
+  if (activitiesFilterMode !== ACTIVITIES_FILTER_DEFAULT) {
+    setOpenState(true);
+  }
+
   return wrap;
 }
 
