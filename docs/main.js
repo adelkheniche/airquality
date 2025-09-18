@@ -465,7 +465,7 @@ function enforceActivitiesScrollLimit(scroller, list) {
       return;
     }
 
-    const maxVisible = 20;
+    const maxVisible = 10;
     const sampleCount = Math.min(rows.length, maxVisible);
 
     let totalHeight = 0;
