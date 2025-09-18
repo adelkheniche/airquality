@@ -370,7 +370,7 @@ async function loadActivitiesForRange(range, { preferCache = true } = {}) {
 
   const cached = preferCache ? getCachedActivities(range) : null;
   if (cached) {
-    renderActivitiesList(cached);
+    renderActivitiesList(cached, range);
     return;
   }
 
@@ -383,7 +383,7 @@ async function loadActivitiesForRange(range, { preferCache = true } = {}) {
       return;
     }
     activitiesCache[range] = { timestamp: Date.now(), data };
-    renderActivitiesList(data);
+    renderActivitiesList(data, range);
   } catch (error) {
     if (token !== activitiesRequestToken) {
       return;
@@ -408,13 +408,17 @@ async function fetchActivities(range) {
   return Array.isArray(data) ? data : [];
 }
 
-function renderActivitiesList(events) {
+function renderActivitiesList(events, range) {
   const container = document.getElementById('cell-activite');
   if (!container) return;
 
   container.innerHTML = '';
+  const scroller = document.createElement('div');
+  scroller.className = 'activities-scroller';
+
   const list = document.createElement('div');
   list.className = 'activities-list';
+  scroller.appendChild(list);
 
   const sorted = sortActivities(events || []);
   if (!sorted.length) {
@@ -436,13 +440,109 @@ function renderActivitiesList(events) {
     activitiesActiveId = null;
   }
 
+  const entries = [];
   sorted.forEach(evt => {
     const row = createActivityRow(evt);
     list.appendChild(row);
+    entries.push({ row, event: evt });
   });
 
-  container.appendChild(list);
+  container.appendChild(scroller);
   setActiveActivityRow(activitiesActiveId);
+  enforceActivitiesScrollLimit(scroller, list);
+  scrollActivitiesToRange(range, scroller, entries, list);
+}
+
+function enforceActivitiesScrollLimit(scroller, list) {
+  if (!scroller || !list) return;
+
+  const apply = () => {
+    const rows = Array.from(list.querySelectorAll('.activity-row'));
+    if (!rows.length) {
+      scroller.style.removeProperty('maxHeight');
+      scroller.style.removeProperty('overflow-y');
+      scroller.style.removeProperty('padding-right');
+      return;
+    }
+
+    const maxVisible = 20;
+    const sampleCount = Math.min(rows.length, maxVisible);
+
+    let totalHeight = 0;
+    for (let i = 0; i < sampleCount; i += 1) {
+      totalHeight += rows[i].getBoundingClientRect().height;
+    }
+
+    const styles = window.getComputedStyle(list);
+    const gapRaw = styles.rowGap || styles.gap || '0';
+    const gapValue = parseFloat(gapRaw) || 0;
+    const totalGap = gapValue * Math.max(sampleCount - 1, 0);
+
+    if (rows.length > maxVisible) {
+      const maxHeight = Math.ceil(totalHeight + totalGap + 1);
+      scroller.style.maxHeight = `${maxHeight}px`;
+      scroller.style.overflowY = 'auto';
+      scroller.style.paddingRight = '8px';
+    } else {
+      scroller.style.removeProperty('maxHeight');
+      scroller.style.removeProperty('overflow-y');
+      scroller.style.removeProperty('padding-right');
+    }
+  };
+
+  if (typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(apply);
+  } else {
+    apply();
+  }
+}
+
+function scrollActivitiesToRange(range, scroller, entries = [], list) {
+  if (!scroller) return;
+
+  const apply = () => {
+    if (!range || range === '24h' || range === '7j') {
+      setScrollerTop(scroller, 0);
+      return;
+    }
+
+    if (range === '30j') {
+      const boundary = dayjs().tz('Europe/Paris').startOf('day').subtract(7, 'day');
+      const target = entries.find(({ event }) => {
+        const start = dayjs(event?.start);
+        const end = dayjs(event?.end);
+        const reference = start.isValid() ? start : end;
+        return reference.isValid() && reference.isBefore(boundary);
+      });
+      if (target?.row) {
+        const listRect = list?.getBoundingClientRect();
+        const rowRect = target.row.getBoundingClientRect();
+        let offset = target.row.offsetTop;
+        if (listRect && rowRect) {
+          offset = Math.max(0, rowRect.top - listRect.top + scroller.scrollTop);
+        }
+        setScrollerTop(scroller, offset);
+        return;
+      }
+    }
+
+    setScrollerTop(scroller, 0);
+  };
+
+  if (typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(apply);
+  } else {
+    apply();
+  }
+}
+
+function setScrollerTop(scroller, top) {
+  if (!scroller) return;
+  if (typeof scroller.scrollTo === 'function') {
+    scroller.scrollTo({ top, behavior: 'auto' });
+  } else {
+    scroller.scrollTop = top;
+  }
 }
 
 function sortActivities(events) {
