@@ -658,19 +658,45 @@ h3 {
 
 .activity-time {
   flex-shrink: 0;
-  font-weight: 600;
-  font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 116px;
   color: var(--secondary);
-  min-width: 104px;
+}
+
+.activity-date {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  color: var(--secondary);
+}
+
+.activity-hours {
+  font-weight: 600;
+  font-size: 0.9375rem;
+  color: var(--text);
+}
+
+.activity-title-block {
+  flex: 1 1 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .activity-title {
-  flex: 1 1 160px;
   font-weight: 600;
   color: var(--text);
-  display: inline-flex;
+}
+
+.activity-metrics {
+  font-size: 0.8125rem;
+  color: var(--secondary);
+  display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 

@@ -55,19 +55,17 @@ const activitiesCache = Object.create(null);
 let highlightDetail = null;
 let activitiesActiveId = null;
 let activitiesRequestToken = 0;
-const ACTIVITIES_SORT_DEFAULT = 'status';
-const ACTIVITIES_SORT_SELECT_ID = 'activities-sort-mode';
-const ACTIVITIES_SORT_OPTIONS = [
-  { value: 'status', label: 'Statut (en cours, récents)' },
-  { value: 'title', label: 'Activité (A → Z)' },
-];
-const ACTIVITIES_TITLE_COLLATOR = new Intl.Collator('fr', {
+const ACTIVITIES_FILTER_DEFAULT = 'all';
+const ACTIVITIES_FILTER_SELECT_ID = 'activities-filter-mode';
+const ACTIVITIES_LABEL_COLLATOR = new Intl.Collator('fr', {
   sensitivity: 'base',
   ignorePunctuation: true,
   numeric: true,
 });
-let activitiesSortMode = ACTIVITIES_SORT_DEFAULT;
+let activitiesFilterMode = ACTIVITIES_FILTER_DEFAULT;
+let activitiesFilterOptions = [];
 let activitiesLatestState = { range: null, events: [] };
+const ACTIVITY_DAY_LABELS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
 
 window.addEventListener('aq:highlight', (event) => {
   const normalized = normalizeHighlightDetail(event?.detail);
@@ -510,14 +508,23 @@ function renderActivitiesList(events, range) {
   const normalizedEvents = Array.isArray(events) ? events.slice() : [];
   activitiesLatestState = { range: range ?? null, events: normalizedEvents };
 
+  activitiesFilterOptions = buildActivitiesFilterOptions(normalizedEvents);
+  if (
+    activitiesFilterMode !== ACTIVITIES_FILTER_DEFAULT &&
+    !activitiesFilterOptions.some(option => option.value === activitiesFilterMode)
+  ) {
+    activitiesFilterMode = ACTIVITIES_FILTER_DEFAULT;
+  }
+
   container.innerHTML = '';
 
-  const controls = buildActivitiesControls();
+  const controls = buildActivitiesControls(activitiesFilterOptions);
   if (controls) {
     container.appendChild(controls);
   }
 
-  const sorted = sortActivities(normalizedEvents, activitiesSortMode);
+  const filtered = filterActivitiesByLabel(normalizedEvents, activitiesFilterMode);
+  const sorted = sortActivitiesByRecency(filtered);
   if (!sorted.length) {
     const empty = document.createElement('p');
     empty.className = 'activities-message';
@@ -557,8 +564,8 @@ function renderActivitiesList(events, range) {
   scrollActivitiesToRange(range, scroller, entries, list);
 }
 
-function buildActivitiesControls() {
-  if (!Array.isArray(ACTIVITIES_SORT_OPTIONS) || !ACTIVITIES_SORT_OPTIONS.length) {
+function buildActivitiesControls(options = []) {
+  if (!Array.isArray(options) || !options.length) {
     return null;
   }
 
@@ -567,30 +574,40 @@ function buildActivitiesControls() {
 
   const label = document.createElement('label');
   label.className = 'activities-sort-label';
-  label.setAttribute('for', ACTIVITIES_SORT_SELECT_ID);
-  label.textContent = 'Trier par';
+  label.setAttribute('for', ACTIVITIES_FILTER_SELECT_ID);
+  label.textContent = 'Filtrer par activité';
   wrap.appendChild(label);
 
   const select = document.createElement('select');
-  select.id = ACTIVITIES_SORT_SELECT_ID;
+  select.id = ACTIVITIES_FILTER_SELECT_ID;
   select.className = 'activities-sort-select';
 
-  const values = ACTIVITIES_SORT_OPTIONS.map(option => option.value);
-  ACTIVITIES_SORT_OPTIONS.forEach(option => {
+  const values = [ACTIVITIES_FILTER_DEFAULT];
+
+  const defaultOption = document.createElement('option');
+  defaultOption.value = ACTIVITIES_FILTER_DEFAULT;
+  defaultOption.textContent = 'Toutes activités';
+  select.appendChild(defaultOption);
+
+  options.forEach(option => {
+    if (!option || typeof option !== 'object') return;
+    const { value, label: optionLabel } = option;
+    if (typeof value !== 'string') return;
+    values.push(value);
     const opt = document.createElement('option');
-    opt.value = option.value;
-    opt.textContent = option.label;
+    opt.value = value;
+    opt.textContent = optionLabel || value;
     select.appendChild(opt);
   });
 
-  if (!values.includes(activitiesSortMode)) {
-    activitiesSortMode = ACTIVITIES_SORT_DEFAULT;
+  if (!values.includes(activitiesFilterMode)) {
+    activitiesFilterMode = ACTIVITIES_FILTER_DEFAULT;
   }
-  select.value = activitiesSortMode;
+  select.value = activitiesFilterMode;
 
   select.addEventListener('change', (event) => {
     const selected = event?.target?.value;
-    activitiesSortMode = values.includes(selected) ? selected : ACTIVITIES_SORT_DEFAULT;
+    activitiesFilterMode = values.includes(selected) ? selected : ACTIVITIES_FILTER_DEFAULT;
     renderActivitiesList(activitiesLatestState.events, activitiesLatestState.range);
   });
 
@@ -690,54 +707,106 @@ function setScrollerTop(scroller, top) {
   }
 }
 
-function sortActivities(events, mode = ACTIVITIES_SORT_DEFAULT) {
+function buildActivitiesFilterOptions(events = []) {
+  const seen = new Map();
+  events.forEach(evt => {
+    const { key, label } = getActivityLabelData(evt);
+    if (!key || seen.has(key)) {
+      return;
+    }
+    seen.set(key, { value: key, label });
+  });
+  return Array.from(seen.values()).sort((a, b) => {
+    const labelA = a?.label ?? '';
+    const labelB = b?.label ?? '';
+    return ACTIVITIES_LABEL_COLLATOR.compare(labelA, labelB);
+  });
+}
+
+function filterActivitiesByLabel(events = [], filterValue = ACTIVITIES_FILTER_DEFAULT) {
   const list = Array.isArray(events) ? events.slice() : [];
-  const validModes = new Set(ACTIVITIES_SORT_OPTIONS.map(option => option.value));
-  const sortMode = validModes.has(mode) ? mode : ACTIVITIES_SORT_DEFAULT;
+  if (filterValue === ACTIVITIES_FILTER_DEFAULT) {
+    return list;
+  }
+  return list.filter(evt => {
+    const { key } = getActivityLabelData(evt);
+    return key === filterValue;
+  });
+}
 
-  if (sortMode === 'title') {
-    return list.sort((a, b) => {
-      const titleA = (a?.title ?? '').toString().trim();
-      const titleB = (b?.title ?? '').toString().trim();
-      const compareTitles = ACTIVITIES_TITLE_COLLATOR.compare(titleA, titleB);
-      if (compareTitles !== 0) {
-        return compareTitles;
-      }
+function sortActivitiesByRecency(events = []) {
+  const list = Array.isArray(events) ? events.slice() : [];
+  return list.sort((a, b) => getActivityReferenceTime(b) - getActivityReferenceTime(a));
+}
 
-      const startA = dayjs(a?.start);
-      const startB = dayjs(b?.start);
-      if (startA.isValid() && startB.isValid()) {
-        const diff = startA.valueOf() - startB.valueOf();
-        if (diff !== 0) {
-          return diff;
-        }
-      }
+function getActivityReferenceTime(evt) {
+  const start = dayjs(evt?.start);
+  const end = dayjs(evt?.end);
+  const hasStart = start.isValid();
+  const hasEnd = end.isValid();
+  if (hasStart && hasEnd) {
+    return Math.max(start.valueOf(), end.valueOf());
+  }
+  if (hasStart) {
+    return start.valueOf();
+  }
+  if (hasEnd) {
+    return end.valueOf();
+  }
+  return Number.NEGATIVE_INFINITY;
+}
 
-      const idA = (a?.event_id ?? a?.eventId ?? '').toString();
-      const idB = (b?.event_id ?? b?.eventId ?? '').toString();
-      return ACTIVITIES_TITLE_COLLATOR.compare(idA, idB);
-    });
+function getActivityLabelData(evt) {
+  const label = extractActivityLabel(evt);
+  const key = normalizeActivityLabelKey(label);
+  return { key, label };
+}
+
+function extractActivityLabel(evt) {
+  if (!evt || typeof evt !== 'object') {
+    return 'Autres';
   }
 
-  const now = dayjs();
-  const ongoing = [];
-  const finished = [];
-
-  list.forEach(evt => {
-    const end = dayjs(evt?.end);
-    if (end.isValid() && end.isAfter(now)) {
-      ongoing.push(evt);
-    } else if (!end.isValid()) {
-      ongoing.push(evt);
-    } else {
-      finished.push(evt);
+  const candidates = [];
+  const pushCandidate = (value) => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length) {
+        candidates.push(trimmed);
+      }
     }
-  });
+  };
 
-  ongoing.sort((a, b) => dayjs(a?.start).valueOf() - dayjs(b?.start).valueOf());
-  finished.sort((a, b) => dayjs(b?.end).valueOf() - dayjs(a?.end).valueOf());
+  pushCandidate(evt.type_label);
+  pushCandidate(evt.typeLabel);
+  pushCandidate(evt.type);
+  pushCandidate(evt.label);
+  pushCandidate(evt.machine_label);
+  pushCandidate(evt.machine);
 
-  return ongoing.concat(finished);
+  if (Array.isArray(evt.tags)) {
+    const tags = evt.tags
+      .map(tag => (typeof tag === 'string' ? tag.trim() : ''))
+      .filter(Boolean);
+    if (tags.length) {
+      candidates.push(tags.join(', '));
+    }
+  } else if (typeof evt.tags === 'string') {
+    pushCandidate(evt.tags);
+  }
+
+  if (!candidates.length) {
+    return 'Autres';
+  }
+  return candidates[0];
+}
+
+function normalizeActivityLabelKey(label) {
+  const base = typeof label === 'string' && label.trim().length ? label.trim() : 'Autres';
+  return base
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
 }
 
 function createActivityRow(evt) {
@@ -754,12 +823,27 @@ function createActivityRow(evt) {
   row.setAttribute('aria-pressed', 'false');
 
   const time = document.createElement('span');
-  time.className = 'activity-time tabular-nums';
-  time.textContent = formatActivityTimeRange(evt?.start, evt?.end);
+  time.className = 'activity-time';
+  const dateLabel = formatActivityDateLabel(evt?.start, evt?.end);
+  if (dateLabel) {
+    const dateEl = document.createElement('span');
+    dateEl.className = 'activity-date';
+    dateEl.textContent = dateLabel;
+    time.appendChild(dateEl);
+  }
+
+  const hoursEl = document.createElement('span');
+  hoursEl.className = 'activity-hours tabular-nums';
+  hoursEl.textContent = formatActivityTimeRange(evt?.start, evt?.end);
+  time.appendChild(hoursEl);
+
+  const titleBlock = document.createElement('span');
+  titleBlock.className = 'activity-title-block';
 
   const titleWrap = document.createElement('span');
   titleWrap.className = 'activity-title';
   titleWrap.textContent = evt?.title || 'Sans titre';
+  titleBlock.appendChild(titleWrap);
 
   const sparklineWrap = document.createElement('span');
   sparklineWrap.className = 'activity-sparkline';
@@ -769,6 +853,14 @@ function createActivityRow(evt) {
   const points = Array.isArray(pm25.points_sample)
     ? pm25.points_sample.map(Number).filter(v => Number.isFinite(v))
     : [];
+
+  const metricsText = formatActivityMetrics(pm25, points);
+  if (metricsText) {
+    const metrics = document.createElement('span');
+    metrics.className = 'activity-metrics tabular-nums';
+    metrics.textContent = metricsText;
+    titleBlock.appendChild(metrics);
+  }
 
   if (points.length) {
     const svg = createSparkline(points, pm25, timeLabel);
@@ -809,7 +901,7 @@ function createActivityRow(evt) {
   row.addEventListener('click', handleSelect);
 
   row.appendChild(time);
-  row.appendChild(titleWrap);
+  row.appendChild(titleBlock);
   row.appendChild(sparklineWrap);
 
   return row;
@@ -817,7 +909,12 @@ function createActivityRow(evt) {
 
 function buildActivityTimeLabel(start, end) {
   const range = formatActivityTimeRange(start, end);
-  return range === '—' ? 'Heures inconnues' : `${range} (Europe/Paris)`;
+  const dateLabel = formatActivityDateLabel(start, end);
+  if (range === '—' && !dateLabel) {
+    return 'Heures inconnues';
+  }
+  const rangePart = range === '—' ? 'Heures inconnues' : `${range} (Europe/Paris)`;
+  return dateLabel ? `${dateLabel}, ${rangePart}` : rangePart;
 }
 
 const NUMBER_FORMAT_1 = new Intl.NumberFormat('fr-FR', {
@@ -900,6 +997,61 @@ function formatActivityTimeRange(startISO, endISO) {
   const startStr = startValid ? start.format('HH:mm') : '—';
   const endStr = endValid ? end.format('HH:mm') : '—';
   return `${startStr}–${endStr}`;
+}
+
+function formatActivityDateLabel(startISO, endISO) {
+  const start = dayjs(startISO).tz('Europe/Paris');
+  const end = dayjs(endISO).tz('Europe/Paris');
+  const reference = start.isValid() ? start : end;
+  if (!reference.isValid()) {
+    return '';
+  }
+  const dayIndex = reference.day();
+  const dayLabel = ACTIVITY_DAY_LABELS[dayIndex] || reference.format('ddd');
+  const dateLabel = reference.format('DD/MM');
+  return `${dayLabel} ${dateLabel}`;
+}
+
+function formatActivityMetrics(pm25 = {}, points = []) {
+  const pointValues = Array.isArray(points) ? points : [];
+  const numericPoints = pointValues.filter(value => Number.isFinite(value));
+
+  const minCandidates = [pm25.min, pm25.min_value, pm25.minimum, pm25.pm25_min];
+  const maxCandidates = [pm25.max, pm25.max_value, pm25.maximum, pm25.pm25_max];
+  const meanCandidates = [pm25.mean, pm25.avg, pm25.average, pm25.pm25_mean];
+
+  const minValue = firstFinite(minCandidates);
+  const maxValue = firstFinite(maxCandidates);
+  const meanValue = firstFinite(meanCandidates);
+
+  const fallbackMin = numericPoints.length ? Math.min(...numericPoints) : null;
+  const fallbackMax = numericPoints.length ? Math.max(...numericPoints) : null;
+  const fallbackMean = numericPoints.length
+    ? numericPoints.reduce((sum, value) => sum + value, 0) / numericPoints.length
+    : null;
+
+  const minFormatted = formatMetricValue(minValue ?? fallbackMin);
+  const meanFormatted = formatMetricValue(meanValue ?? fallbackMean);
+  const maxFormatted = formatMetricValue(maxValue ?? fallbackMax);
+
+  return `Min ${minFormatted} · Moy ${meanFormatted} · Max ${maxFormatted} µg/m³`;
+}
+
+function firstFinite(values = []) {
+  for (const value of values) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+  }
+  return null;
+}
+
+function formatMetricValue(value) {
+  if (!Number.isFinite(value)) {
+    return '—';
+  }
+  return NUMBER_FORMAT_1.format(value);
 }
 
 const RANGE_TITLES = {
