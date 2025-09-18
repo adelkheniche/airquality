@@ -55,6 +55,19 @@ const activitiesCache = Object.create(null);
 let highlightDetail = null;
 let activitiesActiveId = null;
 let activitiesRequestToken = 0;
+const ACTIVITIES_SORT_DEFAULT = 'status';
+const ACTIVITIES_SORT_SELECT_ID = 'activities-sort-mode';
+const ACTIVITIES_SORT_OPTIONS = [
+  { value: 'status', label: 'Statut (en cours, récents)' },
+  { value: 'title', label: 'Activité (A → Z)' },
+];
+const ACTIVITIES_TITLE_COLLATOR = new Intl.Collator('fr', {
+  sensitivity: 'base',
+  ignorePunctuation: true,
+  numeric: true,
+});
+let activitiesSortMode = ACTIVITIES_SORT_DEFAULT;
+let activitiesLatestState = { range: null, events: [] };
 
 window.addEventListener('aq:highlight', (event) => {
   const normalized = normalizeHighlightDetail(event?.detail);
@@ -494,15 +507,17 @@ function renderActivitiesList(events, range) {
   const container = document.getElementById('cell-activite');
   if (!container) return;
 
+  const normalizedEvents = Array.isArray(events) ? events.slice() : [];
+  activitiesLatestState = { range: range ?? null, events: normalizedEvents };
+
   container.innerHTML = '';
-  const scroller = document.createElement('div');
-  scroller.className = 'activities-scroller';
 
-  const list = document.createElement('div');
-  list.className = 'activities-list';
-  scroller.appendChild(list);
+  const controls = buildActivitiesControls();
+  if (controls) {
+    container.appendChild(controls);
+  }
 
-  const sorted = sortActivities(events || []);
+  const sorted = sortActivities(normalizedEvents, activitiesSortMode);
   if (!sorted.length) {
     const empty = document.createElement('p');
     empty.className = 'activities-message';
@@ -511,6 +526,13 @@ function renderActivitiesList(events, range) {
     setActiveActivityRow(null);
     return;
   }
+
+  const scroller = document.createElement('div');
+  scroller.className = 'activities-scroller';
+
+  const list = document.createElement('div');
+  list.className = 'activities-list';
+  scroller.appendChild(list);
 
   const ids = new Set(
     sorted
@@ -533,6 +555,47 @@ function renderActivitiesList(events, range) {
   setActiveActivityRow(activitiesActiveId);
   enforceActivitiesScrollLimit(scroller, list);
   scrollActivitiesToRange(range, scroller, entries, list);
+}
+
+function buildActivitiesControls() {
+  if (!Array.isArray(ACTIVITIES_SORT_OPTIONS) || !ACTIVITIES_SORT_OPTIONS.length) {
+    return null;
+  }
+
+  const wrap = document.createElement('div');
+  wrap.className = 'activities-controls';
+
+  const label = document.createElement('label');
+  label.className = 'activities-sort-label';
+  label.setAttribute('for', ACTIVITIES_SORT_SELECT_ID);
+  label.textContent = 'Trier par';
+  wrap.appendChild(label);
+
+  const select = document.createElement('select');
+  select.id = ACTIVITIES_SORT_SELECT_ID;
+  select.className = 'activities-sort-select';
+
+  const values = ACTIVITIES_SORT_OPTIONS.map(option => option.value);
+  ACTIVITIES_SORT_OPTIONS.forEach(option => {
+    const opt = document.createElement('option');
+    opt.value = option.value;
+    opt.textContent = option.label;
+    select.appendChild(opt);
+  });
+
+  if (!values.includes(activitiesSortMode)) {
+    activitiesSortMode = ACTIVITIES_SORT_DEFAULT;
+  }
+  select.value = activitiesSortMode;
+
+  select.addEventListener('change', (event) => {
+    const selected = event?.target?.value;
+    activitiesSortMode = values.includes(selected) ? selected : ACTIVITIES_SORT_DEFAULT;
+    renderActivitiesList(activitiesLatestState.events, activitiesLatestState.range);
+  });
+
+  wrap.appendChild(select);
+  return wrap;
 }
 
 function enforceActivitiesScrollLimit(scroller, list) {
@@ -627,12 +690,40 @@ function setScrollerTop(scroller, top) {
   }
 }
 
-function sortActivities(events) {
+function sortActivities(events, mode = ACTIVITIES_SORT_DEFAULT) {
+  const list = Array.isArray(events) ? events.slice() : [];
+  const validModes = new Set(ACTIVITIES_SORT_OPTIONS.map(option => option.value));
+  const sortMode = validModes.has(mode) ? mode : ACTIVITIES_SORT_DEFAULT;
+
+  if (sortMode === 'title') {
+    return list.sort((a, b) => {
+      const titleA = (a?.title ?? '').toString().trim();
+      const titleB = (b?.title ?? '').toString().trim();
+      const compareTitles = ACTIVITIES_TITLE_COLLATOR.compare(titleA, titleB);
+      if (compareTitles !== 0) {
+        return compareTitles;
+      }
+
+      const startA = dayjs(a?.start);
+      const startB = dayjs(b?.start);
+      if (startA.isValid() && startB.isValid()) {
+        const diff = startA.valueOf() - startB.valueOf();
+        if (diff !== 0) {
+          return diff;
+        }
+      }
+
+      const idA = (a?.event_id ?? a?.eventId ?? '').toString();
+      const idB = (b?.event_id ?? b?.eventId ?? '').toString();
+      return ACTIVITIES_TITLE_COLLATOR.compare(idA, idB);
+    });
+  }
+
   const now = dayjs();
   const ongoing = [];
   const finished = [];
 
-  (events || []).forEach(evt => {
+  list.forEach(evt => {
     const end = dayjs(evt?.end);
     if (end.isValid() && end.isAfter(now)) {
       ongoing.push(evt);
@@ -662,10 +753,6 @@ function createActivityRow(evt) {
   }
   row.setAttribute('aria-pressed', 'false');
 
-  const badge = document.createElement('span');
-  badge.className = 'activity-badge';
-  badge.textContent = (evt?.type || 'Activité').toString();
-
   const time = document.createElement('span');
   time.className = 'activity-time tabular-nums';
   time.textContent = formatActivityTimeRange(evt?.start, evt?.end);
@@ -673,12 +760,6 @@ function createActivityRow(evt) {
   const titleWrap = document.createElement('span');
   titleWrap.className = 'activity-title';
   titleWrap.textContent = evt?.title || 'Sans titre';
-  if (evt?.person) {
-    const person = document.createElement('span');
-    person.className = 'activity-person';
-    person.textContent = `• ${evt.person}`;
-    titleWrap.appendChild(person);
-  }
 
   const sparklineWrap = document.createElement('span');
   sparklineWrap.className = 'activity-sparkline';
@@ -727,7 +808,6 @@ function createActivityRow(evt) {
 
   row.addEventListener('click', handleSelect);
 
-  row.appendChild(badge);
   row.appendChild(time);
   row.appendChild(titleWrap);
   row.appendChild(sparklineWrap);
