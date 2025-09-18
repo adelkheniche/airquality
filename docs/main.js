@@ -802,6 +802,106 @@ const RANGE_TITLES = {
 };
 let currentRange = '24h';
 const DATASETS = {};
+const RANGE_FETCHES = Object.create(null);
+let RANGE_BOUNDS = {};
+let rangeSelectionToken = 0;
+let currentReloadPromise = Promise.resolve();
+
+function clearChartLoading() {
+  const chart = document.getElementById('chart-main');
+  if (!chart) return;
+  delete chart.dataset.state;
+  chart.removeAttribute('aria-busy');
+}
+
+function showChartLoading(range) {
+  if (range) {
+    currentRange = range;
+    setActiveRange(range);
+    const title = document.getElementById('chart-title');
+    if (title && RANGE_TITLES[range]) {
+      title.textContent = RANGE_TITLES[range];
+    }
+  }
+  const summary = document.getElementById('chart-summary');
+  if (summary) {
+    summary.textContent = 'Chargement…';
+  }
+  const chart = document.getElementById('chart-main');
+  if (chart) {
+    chart.dataset.state = 'loading';
+    chart.setAttribute('aria-busy', 'true');
+  }
+}
+
+function showChartError(range, message) {
+  if (range) {
+    currentRange = range;
+    setActiveRange(range);
+    const title = document.getElementById('chart-title');
+    if (title && RANGE_TITLES[range]) {
+      title.textContent = RANGE_TITLES[range];
+    }
+  }
+  const summary = document.getElementById('chart-summary');
+  if (summary) {
+    summary.textContent = message;
+  }
+  const chart = document.getElementById('chart-main');
+  if (chart) {
+    chart.dataset.state = 'error';
+    chart.removeAttribute('aria-busy');
+  }
+}
+
+async function fetchRangeDataset(range, bounds) {
+  if (!bounds) {
+    throw new Error(`Aucune borne disponible pour la plage ${range}`);
+  }
+  const tz = 'Europe/Paris';
+  const startISO = bounds.start.toISOString();
+  const endISO = bounds.end.toISOString();
+
+  const [serie, kpiData, peaksData] = await Promise.all([
+    series(startISO, endISO),
+    kpis(startISO, endISO),
+    peaksList(startISO, endISO)
+  ]);
+
+  const sortedPeaks = (peaksData || []).slice().sort((a, b) => new Date(b.ts) - new Date(a.ts));
+
+  return {
+    data: serie,
+    xRange: [bounds.start.tz(tz).format(), bounds.end.tz(tz).format()],
+    kpis: kpiData,
+    peaks: sortedPeaks,
+    rangeStartISO: startISO,
+    rangeEndISO: endISO,
+  };
+}
+
+async function ensureRangeDataset(range) {
+  if (DATASETS[range]) {
+    return DATASETS[range];
+  }
+  if (RANGE_FETCHES[range]) {
+    return RANGE_FETCHES[range];
+  }
+  const bounds = RANGE_BOUNDS[range];
+  if (!bounds) {
+    throw new Error(`Plage inconnue : ${range}`);
+  }
+  const promise = fetchRangeDataset(range, bounds)
+    .then(ds => {
+      DATASETS[range] = ds;
+      return ds;
+    })
+    .finally(() => {
+      delete RANGE_FETCHES[range];
+    });
+  RANGE_FETCHES[range] = promise;
+  return promise;
+}
 
 function setActiveRange(range) {
   document.querySelectorAll('[data-range]').forEach(btn => {
@@ -820,6 +920,7 @@ function setActiveRange(range) {
 function plotRange(range) {
   const ds = DATASETS[range];
   if (!ds) return;
+  clearChartLoading();
   currentRange = range;
   setActiveRange(range);
   document.getElementById('chart-title').textContent = RANGE_TITLES[range];
@@ -837,9 +938,32 @@ function plotRange(range) {
   }
 }
 
-function handleRangeChange(range) {
-  plotRange(range);
+async function handleRangeChange(range) {
+  if (!range) return;
+
+  const token = ++rangeSelectionToken;
+  if (DATASETS[range]) {
+    plotRange(range);
+    loadActivitiesForRange(range);
+    return;
+  }
+
+  showChartLoading(range);
   loadActivitiesForRange(range);
+
+  await currentReloadPromise.catch(() => {});
+
+  try {
+    await ensureRangeDataset(range);
+    if (token === rangeSelectionToken && DATASETS[range]) {
+      plotRange(range);
+    }
+  } catch (error) {
+    console.error(`Impossible de charger la plage ${range}`, error);
+    if (token === rangeSelectionToken) {
+      showChartError(range, 'Données indisponibles');
+    }
+  }
 }
 
 /* ---------- main flow ---------- */
@@ -856,98 +980,109 @@ async function loadAll() {
 }
 
 async function reloadDashboard() {
-  const tz = 'Europe/Paris';
-  const extent = await readingsExtent();
-  if (!extent || !extent.max) {
-    console.warn('Étendue de données indisponible, impossible de définir la période par défaut.');
-    return;
-  }
-  const earliest = dayjs(extent.min ?? extent.max).utc();
-  const latest = dayjs(extent.max).utc();
-  const clampStart = candidate => (candidate.isBefore(earliest) ? earliest : candidate);
+  const task = (async () => {
+    showChartLoading(currentRange);
+    const tz = 'Europe/Paris';
+    const extent = await readingsExtent();
+    if (!extent || !extent.max) {
+      console.warn('Étendue de données indisponible, impossible de définir la période par défaut.');
+      showChartError(currentRange, 'Données indisponibles');
+      return;
+    }
+    const earliest = dayjs(extent.min ?? extent.max).utc();
+    const latest = dayjs(extent.max).utc();
+    const clampStart = candidate => (candidate.isBefore(earliest) ? earliest : candidate);
 
-  const rangeBounds = {
-    '24h': { start: clampStart(latest.subtract(24, 'hour')), end: latest },
-    '7j':  { start: clampStart(latest.subtract(7, 'day')),  end: latest },
-    '30j': { start: clampStart(latest.subtract(30, 'day')), end: latest },
-    'debut': { start: earliest, end: latest }
-  };
+    RANGE_BOUNDS = {
+      '24h': { start: clampStart(latest.subtract(24, 'hour')), end: latest },
+      '7j':  { start: clampStart(latest.subtract(7, 'day')),  end: latest },
+      '30j': { start: clampStart(latest.subtract(30, 'day')), end: latest },
+      'debut': { start: earliest, end: latest }
+    };
 
-  const entries = [];
-  for (const [range, bounds] of Object.entries(rangeBounds)) {
-    const startISO = bounds.start.toISOString();
-    const endISO = bounds.end.toISOString();
-    const serie = await series(startISO, endISO);
-    const kpiData = await kpis(startISO, endISO);
-    const peaksData = await peaksList(startISO, endISO);
-    const sortedPeaks = (peaksData || []).slice().sort((a, b) => new Date(b.ts) - new Date(a.ts));
-    entries.push([range, {
-      data: serie,
-      xRange: [bounds.start.tz(tz).format(), bounds.end.tz(tz).format()],
-      kpis: kpiData,
-      peaks: sortedPeaks,
-      rangeStartISO: startISO,
-      rangeEndISO: endISO,
-    }]);
-  }
+    const rangesToUpdate = Array.from(new Set([
+      ...Object.keys(DATASETS),
+      currentRange,
+      '24h'
+    ])).filter(range => RANGE_BOUNDS[range]);
 
-  Object.keys(DATASETS).forEach(key => { delete DATASETS[key]; });
-  entries.forEach(([range, ds]) => { DATASETS[range] = ds; });
+    const refreshedEntries = await Promise.all(rangesToUpdate.map(async (range) => {
+      try {
+        const ds = await fetchRangeDataset(range, RANGE_BOUNDS[range]);
+        return [range, ds];
+      } catch (error) {
+        console.error(`Impossible de rafraîchir la plage ${range}`, error);
+        return null;
+      }
+    }));
 
-  const s24 = DATASETS['24h']?.data ?? [];
-  const lastVal = s24[s24.length - 1];
-  const prevVal = s24[s24.length - 2];
-  const timeEl = document.getElementById('kpi-last-time');
-  const arrowEl = document.getElementById('kpi-last-arrow');
-  const valueEl = document.getElementById('kpi-last');
+    refreshedEntries.forEach(entry => {
+      if (!entry) return;
+      const [range, ds] = entry;
+      DATASETS[range] = ds;
+    });
 
-  if (lastVal) {
-    const val = lastVal.pm25 != null ? Math.round(lastVal.pm25) : null;
-    const displayVal = val != null ? val.toString() : '–';
-    setKpiValue('kpi-last', displayVal);
-    applySeverityDataset(valueEl, classifyPm25Severity(lastVal.pm25));
-    const measuredAt = dayjs(lastVal.ts).tz(tz);
-    const measuredAtStr = measuredAt.format('HH:mm').replace(':', ' h ');
-    if (timeEl) timeEl.textContent = `µg/m³ à ${measuredAtStr}`;
+    const s24 = DATASETS['24h']?.data ?? [];
+    const lastVal = s24[s24.length - 1];
+    const prevVal = s24[s24.length - 2];
+    const timeEl = document.getElementById('kpi-last-time');
+    const arrowEl = document.getElementById('kpi-last-arrow');
+    const valueEl = document.getElementById('kpi-last');
 
-    if (prevVal && prevVal.pm25 != null && val != null) {
-      const prev = Math.round(prevVal.pm25);
-      if (val > prev) {
-        if (arrowEl) {
-          arrowEl.textContent = '▲';
-          arrowEl.className = 'kpi-trend-icon is-up';
-        }
-      } else if (val < prev) {
-        if (arrowEl) {
-          arrowEl.textContent = '▼';
-          arrowEl.className = 'kpi-trend-icon is-down';
+    if (lastVal) {
+      const val = lastVal.pm25 != null ? Math.round(lastVal.pm25) : null;
+      const displayVal = val != null ? val.toString() : '–';
+      setKpiValue('kpi-last', displayVal);
+      applySeverityDataset(valueEl, classifyPm25Severity(lastVal.pm25));
+      const measuredAt = dayjs(lastVal.ts).tz(tz);
+      const measuredAtStr = measuredAt.format('HH:mm').replace(':', ' h ');
+      if (timeEl) timeEl.textContent = `µg/m³ à ${measuredAtStr}`;
+
+      if (prevVal && prevVal.pm25 != null && val != null) {
+        const prev = Math.round(prevVal.pm25);
+        if (val > prev) {
+          if (arrowEl) {
+            arrowEl.textContent = '▲';
+            arrowEl.className = 'kpi-trend-icon is-up';
+          }
+        } else if (val < prev) {
+          if (arrowEl) {
+            arrowEl.textContent = '▼';
+            arrowEl.className = 'kpi-trend-icon is-down';
+          }
+        } else {
+          if (arrowEl) {
+            arrowEl.textContent = '=';
+            arrowEl.className = 'kpi-trend-icon is-flat';
+          }
         }
       } else {
         if (arrowEl) {
-          arrowEl.textContent = '=';
-          arrowEl.className = 'kpi-trend-icon is-flat';
+          arrowEl.textContent = '';
+          arrowEl.className = 'kpi-trend-icon';
         }
       }
     } else {
+      setKpiValue('kpi-last', '–');
+      applySeverityDataset(valueEl, null);
+      if (timeEl) timeEl.textContent = 'Pas de relevé';
       if (arrowEl) {
         arrowEl.textContent = '';
         arrowEl.className = 'kpi-trend-icon';
       }
     }
-  } else {
-    setKpiValue('kpi-last', '–');
-    applySeverityDataset(valueEl, null);
-    if (timeEl) timeEl.textContent = 'Pas de relevé';
-    if (arrowEl) {
-      arrowEl.textContent = '';
-      arrowEl.className = 'kpi-trend-icon';
+
+    if (DATASETS[currentRange]) {
+      plotRange(currentRange);
+    } else {
+      showChartError(currentRange, 'Données indisponibles');
     }
-  }
 
-  plotRange(currentRange);
+    await loadActivitiesForRange(currentRange, { preferCache: false });
+  })();
 
-  await loadActivitiesForRange(currentRange);
-
+  currentReloadPromise = task;
+  return task;
 }
 
 async function reloadThrottled() {
