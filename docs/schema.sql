@@ -267,14 +267,69 @@ AS $$
                 WHERE r.ts >= ai.start_ts AND r.ts <= ai.end_ts
             )
     ),
-    activity_stats AS (
-        SELECT 
+    activity_gaps AS (
+        SELECT
+            ar.tag,
+            ar.ts,
+            ar.pm25,
+            LEAD(ar.ts) OVER (PARTITION BY ar.tag ORDER BY ar.ts) AS next_ts
+        FROM activity_readings ar
+    ),
+    activity_gap_stats AS (
+        SELECT
             tag,
-            COUNT(*)::real / 4 AS hours_observed,  -- 15-min intervals
+            percentile_cont(0.5) WITHIN GROUP (ORDER BY gap_seconds) AS median_gap_seconds
+        FROM (
+            SELECT
+                tag,
+                EXTRACT(EPOCH FROM next_ts - ts) AS gap_seconds
+            FROM activity_gaps
+            WHERE next_ts IS NOT NULL
+        ) gaps
+        WHERE gap_seconds > 0
+        GROUP BY tag
+    ),
+    global_gap_stats AS (
+        SELECT
+            percentile_cont(0.5) WITHIN GROUP (ORDER BY gap_seconds) AS median_gap_seconds
+        FROM (
+            SELECT
+                EXTRACT(EPOCH FROM LEAD(r.ts) OVER (PARTITION BY r.sensor_id ORDER BY r.ts) - r.ts) AS gap_seconds
+            FROM readings r
+            WHERE r.ts >= from_ts AND r.ts <= to_ts
+                AND r.pm25 IS NOT NULL
+        ) gaps
+        WHERE gap_seconds > 0
+    ),
+    activity_samples AS (
+        SELECT
+            ag.tag,
+            ag.pm25,
+            COALESCE(
+                NULLIF(
+                    LEAST(
+                        GREATEST(EXTRACT(EPOCH FROM ag.next_ts - ag.ts), 0),
+                        COALESCE(ags.median_gap_seconds, ggs.median_gap_seconds, 15 * 60)
+                    ),
+                    0
+                ),
+                COALESCE(ags.median_gap_seconds, ggs.median_gap_seconds, 15 * 60)
+            )::double precision AS observed_seconds
+        FROM activity_gaps ag
+        LEFT JOIN activity_gap_stats ags ON ag.tag = ags.tag
+        LEFT JOIN global_gap_stats ggs ON TRUE
+    ),
+    activity_stats AS (
+        SELECT
+            tag,
+            (SUM(observed_seconds) / 3600.0)::real AS hours_observed,
             percentile_cont(0.5) WITHIN GROUP (ORDER BY pm25)::real AS pm25_median,
             percentile_cont(0.95) WITHIN GROUP (ORDER BY pm25)::real AS pm25_p95,
-            (COUNT(*) FILTER (WHERE pm25 > 15)::real / COUNT(*) * 100) AS pct_over15
-        FROM activity_readings
+            (
+                SUM(observed_seconds) FILTER (WHERE pm25 > 15)
+                / NULLIF(SUM(observed_seconds), 0) * 100
+            )::real AS pct_over15
+        FROM activity_samples
         GROUP BY tag
     ),
     activity_peaks AS (
