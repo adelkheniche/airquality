@@ -1,12 +1,48 @@
 /* globals supabase, dayjs, Plotly, window, document */
 
-const COLORS = {
-  pm25: '#424341', // accent profond et contrasté pour le PM2.5
-  pm10: '#AFA9B4', // lavande sourde pour le PM10
-  pm1:  '#AAAFAF', // gris doux pour distinguer le PM1
-  grid: '#C3C8C8',
-  text: '#424341'
-};
+function getThemeColors() {
+  if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
+    return {
+      pm25: '#424341',
+      pm10: '#AFA9B4',
+      pm1: '#AAAFAF',
+      grid: '#C3C8C8',
+      text: '#424341',
+      panel: '#FBF4EA'
+    };
+  }
+
+  const styles = window.getComputedStyle(document.documentElement);
+  const read = (name, fallback) => {
+    const value = styles.getPropertyValue(name);
+    return value && value.trim() ? value.trim() : fallback;
+  };
+
+  return {
+    pm25: read('--primary', '#424341'),
+    pm10: read('--secondary', '#AFA9B4'),
+    pm1: read('--warning', '#AAAFAF'),
+    grid: read('--border', '#C3C8C8'),
+    text: read('--text', '#424341'),
+    panel: read('--panel', '#FBF4EA')
+  };
+}
+
+function getBodyFontFamily() {
+  if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
+    return "'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+  }
+  const body = document.body;
+  if (!body) {
+    return "'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+  }
+  const fontFamily = window.getComputedStyle(body).fontFamily;
+  return fontFamily && fontFamily.trim()
+    ? fontFamily
+    : "'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif";
+}
+
+const COLORS = getThemeColors();
 
 const WHO_LINE = 15; // µg/m³
 
@@ -218,15 +254,33 @@ function plotOne(containerId, serie, title, xRange) {
     ? Math.max(WHO_LINE, Math.ceil(Math.max(...allVals) / 5) * 5)
     : WHO_LINE;
 
+  const fontFamily = getBodyFontFamily();
   const layout = {
-    title: { text:title, font:{ size:14 } },
+    title: { text:title, font:{ size:14, family:fontFamily, color:COLORS.text } },
     margin:{ t:48, r:24, b:36, l:48 },
-    xaxis:{ showgrid:true, gridcolor:COLORS.grid },
-    yaxis:{ showgrid:true, gridcolor:COLORS.grid, title:'µg/m³', range:[0, ymax], fixedrange:true },
-    legend:{ orientation:'h', x:0, xanchor:'left', y:1.2 },
+    paper_bgcolor: COLORS.panel,
+    plot_bgcolor: COLORS.panel,
+    font: { family: fontFamily, color: COLORS.text },
+    xaxis:{
+      showgrid:true,
+      gridcolor:COLORS.grid,
+      color: COLORS.text,
+      linecolor: COLORS.grid,
+      tickfont: { color: COLORS.text }
+    },
+    yaxis:{
+      showgrid:true,
+      gridcolor:COLORS.grid,
+      title:{ text:'µg/m³', font:{ family: fontFamily, size: 12, color: COLORS.text } },
+      range:[0, ymax],
+      fixedrange:true,
+      color: COLORS.text,
+      tickfont: { color: COLORS.text }
+    },
+    legend:{ orientation:'h', x:0, xanchor:'left', y:1.2, font:{ color: COLORS.text, family: fontFamily }, bgcolor:'rgba(0,0,0,0)' },
     shapes: [
       { type:'line', xref:'paper', x0:0, x1:1, y0:WHO_LINE, y1:WHO_LINE,
-        line:{ dash:'dash', width:1, color:'#545858' } },
+        line:{ dash:'dash', width:1, color:COLORS.text } },
       { type:'rect', xref:'paper', x0:0, x1:1, y0:WHO_LINE, y1:ymax,
         fillcolor:COLORS.pm25, opacity:0.06, line:{ width:0 } }
     ]
@@ -465,7 +519,7 @@ function enforceActivitiesScrollLimit(scroller, list) {
       return;
     }
 
-    const maxVisible = 10;
+    const maxVisible = 5;
     const sampleCount = Math.min(rows.length, maxVisible);
 
     let totalHeight = 0;
@@ -636,8 +690,9 @@ function createActivityRow(evt) {
     setActiveActivityRow(eventIdRaw);
     window.dispatchEvent(new CustomEvent('aq:highlight', { detail }));
     const chart = document.getElementById('chart-main');
-    if (chart && typeof chart.scrollIntoView === 'function') {
-      chart.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const chartCard = chart?.closest('.card') || chart;
+    if (chartCard && typeof chartCard.scrollIntoView === 'function') {
+      chartCard.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
     }
     focusChartOnEventDay(chart, detail.start, detail.end);
   };
