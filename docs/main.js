@@ -78,22 +78,50 @@ async function readingsExtent() {
 
 async function series(startISO, endISO) {
   const pageSize = 1000;
-  let from = 0;
-  let results = [];
-  while (true) {
-    const { data, error } = await sb
-      .from('readings')
-      .select('ts, pm1, pm25, pm10')
-      .gte('ts', startISO)
-      .lte('ts', endISO)
-      .order('ts')
-      .range(from, from + pageSize - 1);
-    if (error) throw error;
-    results = results.concat(data || []);
-    if (!data || data.length < pageSize) break;
-    from += pageSize;
+  const maxParallelPages = 3;
+
+  const { count, error: countError } = await sb
+    .from('readings')
+    .select('ts', { count: 'exact', head: true })
+    .gte('ts', startISO)
+    .lte('ts', endISO);
+  if (countError) throw countError;
+  const total = Number.isFinite(count) ? count : 0;
+  if (!total) {
+    return [];
   }
-  return results;
+
+  const totalPages = Math.ceil(total / pageSize);
+  const indices = Array.from({ length: totalPages }, (_, i) => i);
+  const chunks = [];
+
+  for (let i = 0; i < indices.length; i += maxParallelPages) {
+    chunks.push(indices.slice(i, i + maxParallelPages));
+  }
+
+  const results = [];
+  for (const chunk of chunks) {
+    const pages = await Promise.all(
+      chunk.map(async (pageIndex) => {
+        const from = pageIndex * pageSize;
+        const to = Math.min(total - 1, from + pageSize - 1);
+        const { data, error } = await sb
+          .from('readings')
+          .select('ts, pm1, pm25, pm10')
+          .gte('ts', startISO)
+          .lte('ts', endISO)
+          .order('ts', { ascending: true })
+          .range(from, to);
+        if (error) throw error;
+        return data || [];
+      })
+    );
+    for (const page of pages) {
+      results.push(...page);
+    }
+  }
+
+  return results.sort((a, b) => (a.ts < b.ts ? -1 : a.ts > b.ts ? 1 : 0));
 }
 
 async function kpis(startISO, endISO) {
