@@ -13,6 +13,8 @@
     targetIntensity: 0.2,
     currentIntensity: 0.2,
     isMobile: false,
+    lastFrameTime: 0,
+    frameInterval: 1000 / 30,
   };
 
   const rand = (min, max) => Math.random() * (max - min) + min;
@@ -69,8 +71,8 @@
   function spawnParticles() {
     if (!state.ctx) return;
 
-    const maxParticles = state.isMobile ? 24 : 60;
-    const minParticles = state.isMobile ? 8 : 16;
+    const maxParticles = state.isMobile ? 18 : 42;
+    const minParticles = state.isMobile ? 6 : 12;
     const desired = Math.round(
       minParticles + (maxParticles - minParticles) * clamp(state.currentIntensity, 0, 1)
     );
@@ -78,7 +80,7 @@
     state.particles.length = desired;
     for (let i = 0; i < desired; i += 1) {
       const existing = state.particles[i];
-      const baseSpeed = state.isMobile ? 0.12 : 0.18;
+      const baseSpeed = state.isMobile ? 0.1 : 0.15;
       if (existing) {
         existing.radius = rand(0.8, state.isMobile ? 2 : 3);
         existing.speed = rand(baseSpeed * 0.5, baseSpeed * 1.6);
@@ -98,9 +100,14 @@
     return Math.min(Math.max(v, min), max);
   }
 
-  function step() {
+  function step(timestamp) {
     state.rafId = window.requestAnimationFrame(step);
     if (!state.ctx) return;
+
+    if (state.lastFrameTime && timestamp - state.lastFrameTime < state.frameInterval) {
+      return;
+    }
+    state.lastFrameTime = timestamp;
 
     const ctx = state.ctx;
     ctx.clearRect(0, 0, state.width, state.height);
@@ -143,10 +150,31 @@
     if (!ensureCanvas()) {
       return;
     }
-    if (!state.rafId) {
-      step();
+    startAnimation();
+  }
+
+  function startAnimation() {
+    if (state.rafId) return;
+    state.lastFrameTime = 0;
+    state.rafId = window.requestAnimationFrame(step);
+  }
+
+  function stopAnimation() {
+    if (!state.rafId) return;
+    window.cancelAnimationFrame(state.rafId);
+    state.rafId = null;
+    state.lastFrameTime = 0;
+  }
+
+  function handleVisibilityChange() {
+    if (document.visibilityState === 'hidden') {
+      stopAnimation();
+    } else {
+      startAnimation();
     }
   }
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
 
   function setQuality({ pm25 = null, pctOver = null, severity = null } = {}) {
     let base = 0.2;
@@ -190,5 +218,7 @@
     init,
     setQuality,
     pulse,
+    _start: startAnimation,
+    _stop: stopAnimation,
   };
 })();
