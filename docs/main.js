@@ -67,6 +67,11 @@ let activitiesFilterOptions = [];
 let activitiesLatestState = { range: null, events: [] };
 const ACTIVITY_DAY_LABELS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
 
+const ambientState = {
+  last: { pm25: null, pct: null, severity: null },
+  override: null,
+};
+
 window.addEventListener('aq:highlight', (event) => {
   const normalized = normalizeHighlightDetail(event?.detail);
   highlightDetail = normalized;
@@ -198,16 +203,147 @@ function applySeverityDataset(el, severity) {
 }
 
 function updateAmbientQuality({ pm25, pct, severity }) {
+  ambientState.last = {
+    pm25: pm25 ?? null,
+    pct: pct ?? null,
+    severity: severity ?? null,
+  };
+  refreshAmbientParticles();
+  syncAmbientDebugWithLiveValue();
+}
+
+function refreshAmbientParticles() {
   if (typeof window === 'undefined') return;
   const ambient = window.AmbientParticles;
   if (!ambient || typeof ambient.setQuality !== 'function') {
     return;
   }
 
+  const base = ambientState.last || { pm25: null, pct: null, severity: null };
+  let { pm25, pct, severity } = base;
+
+  if (ambientState.override != null) {
+    pm25 = ambientState.override;
+    const overrideSeverity = classifyPm25Severity(pm25);
+    if (overrideSeverity) {
+      severity = overrideSeverity;
+    }
+  }
+
   ambient.setQuality({ pm25, pctOver: pct, severity });
   if (severity === 'risk' && typeof ambient.pulse === 'function') {
     ambient.pulse();
   }
+}
+
+function clampToSliderRange(slider, value) {
+  if (!slider) return value;
+  const min = Number(slider.min);
+  const max = Number(slider.max);
+  if (Number.isFinite(min) && Number.isFinite(max)) {
+    return Math.min(Math.max(value, min), max);
+  }
+  if (Number.isFinite(min)) {
+    return Math.max(value, min);
+  }
+  if (Number.isFinite(max)) {
+    return Math.min(value, max);
+  }
+  return value;
+}
+
+function renderAmbientDebugState() {
+  const slider = document.getElementById('ambient-debug-slider');
+  const valueEl = document.getElementById('ambient-debug-value');
+  const severityEl = document.getElementById('ambient-debug-severity');
+
+  if (!valueEl || !severityEl) {
+    return;
+  }
+
+  if (ambientState.override == null) {
+    valueEl.textContent = 'Temps réel';
+    severityEl.textContent = '';
+    severityEl.dataset.severity = '';
+    severityEl.hidden = true;
+    if (slider) {
+      const liveValue = Number(ambientState.last?.pm25);
+      if (Number.isFinite(liveValue)) {
+        slider.value = clampToSliderRange(slider, Math.round(liveValue));
+      }
+    }
+    return;
+  }
+
+  const overrideValue = ambientState.override;
+  const severity = classifyPm25Severity(overrideValue);
+  valueEl.textContent = `${Math.round(overrideValue)} µg/m³`;
+  severityEl.hidden = false;
+  if (severity === 'risk') {
+    severityEl.textContent = 'Risque';
+  } else if (severity === 'warn') {
+    severityEl.textContent = 'À surveiller';
+  } else if (severity === 'good') {
+    severityEl.textContent = 'Bonne qualité';
+  } else {
+    severityEl.textContent = 'Qualité inconnue';
+  }
+  severityEl.dataset.severity = severity || '';
+}
+
+function syncAmbientDebugWithLiveValue() {
+  if (ambientState.override != null) {
+    return;
+  }
+  renderAmbientDebugState();
+}
+
+function setAmbientOverride(value) {
+  if (value == null || value === '') {
+    ambientState.override = null;
+    renderAmbientDebugState();
+    refreshAmbientParticles();
+    return;
+  }
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return;
+  }
+  ambientState.override = numeric;
+  renderAmbientDebugState();
+  refreshAmbientParticles();
+}
+
+function clearAmbientOverride() {
+  ambientState.override = null;
+  renderAmbientDebugState();
+  refreshAmbientParticles();
+}
+
+function initAmbientDebugControls() {
+  const slider = document.getElementById('ambient-debug-slider');
+  const resetButton = document.getElementById('ambient-debug-reset');
+  if (!slider) {
+    return;
+  }
+
+  slider.addEventListener('input', (event) => {
+    const target = event?.target;
+    const value = target?.value;
+    if (value == null) {
+      return;
+    }
+    setAmbientOverride(Number(value));
+  });
+
+  if (resetButton) {
+    resetButton.addEventListener('click', () => {
+      clearAmbientOverride();
+    });
+  }
+
+  renderAmbientDebugState();
 }
 
 function setPctPill(pct) {
@@ -1516,6 +1652,8 @@ async function reloadThrottled() {
   lastReload = Date.now();
   await reloadDashboard();
 }
+
+initAmbientDebugControls();
 
 // kick
 loadAll()

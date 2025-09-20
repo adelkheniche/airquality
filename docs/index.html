@@ -160,6 +160,25 @@
         <ul id="list-peaks" class="stacked-list"></ul>
       </div>
     </section>
+
+    <!-- Ambient debug slider -->
+    <section class="card ambient-debug" aria-label="Tester l'animation des particules">
+      <div class="ambient-debug__header">
+        <h3 class="section-title">Tester l’animation des particules</h3>
+        <p class="ambient-debug__description">Déplacez le curseur pour simuler une valeur de PM₂.₅ et observer l’intensité des particules.</p>
+      </div>
+      <div class="ambient-debug__controls">
+        <label class="ambient-debug__slider-wrap">
+          <span class="ambient-debug__label">PM₂.₅ simulée</span>
+          <input id="ambient-debug-slider" type="range" min="0" max="80" step="1" value="0" class="ambient-debug__slider" />
+        </label>
+        <div class="ambient-debug__readout">
+          <span id="ambient-debug-value" class="ambient-debug__value">Temps réel</span>
+          <span id="ambient-debug-severity" class="ambient-debug__severity" hidden></span>
+        </div>
+        <button id="ambient-debug-reset" type="button" class="tw-btn tw-btn-ghost ambient-debug__reset">Revenir au temps réel</button>
+      </div>
+    </section>
   </main>
 
   <!-- Libs -->
