@@ -38,11 +38,6 @@ body {
   font-feature-settings: 'liga' 1, 'kern' 1;
 }
 
-body.has-ambient {
-  position: relative;
-  overflow-x: hidden;
-}
-
 h1,
 h2,
 h3 {
@@ -73,38 +68,6 @@ h1 {
   flex-direction: column;
 }
 
-.ambient-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-  background: radial-gradient(circle at 20% 20%, rgba(var(--secondary-rgb), 0.15), transparent 55%),
-              radial-gradient(circle at 80% 15%, rgba(var(--warning-rgb), 0.12), transparent 50%),
-              linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 247, 250, 0.95));
-}
-
-.ambient-gradient {
-  position: absolute;
-  inset: 0;
-  mix-blend-mode: screen;
-  background: radial-gradient(circle at 50% 80%, rgba(var(--primary-rgb), 0.08), transparent 70%);
-}
-
-.ambient-canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  display: block;
-}
-
-.ambient-layer::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(245, 247, 250, 0.9) 100%);
-}
 
 .brand {
   position: relative;
@@ -939,100 +902,5 @@ h3 {
 .activities-message {
   font-size: 0.9375rem;
   color: var(--secondary);
-}
-
-.ambient-debug {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  margin-top: 12px;
-}
-
-.ambient-debug__header {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.ambient-debug__description {
-  font-size: 0.9375rem;
-  color: var(--secondary);
-}
-
-.ambient-debug__controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 20px;
-}
-
-.ambient-debug__slider-wrap {
-  flex: 1 1 220px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  font-weight: 600;
-  color: var(--secondary);
-}
-
-.ambient-debug__slider {
-  width: 100%;
-  accent-color: var(--primary);
-}
-
-.ambient-debug__readout {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--text);
-}
-
-.ambient-debug__value {
-  font-variant-numeric: tabular-nums;
-}
-
-.ambient-debug__severity {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  background: rgba(var(--primary-rgb), 0.1);
-  color: var(--primary);
-}
-
-.ambient-debug__severity[data-severity="good"] {
-  background: rgba(19, 138, 91, 0.16);
-  color: var(--success);
-}
-
-.ambient-debug__severity[data-severity="warn"] {
-  background: rgba(253, 202, 64, 0.2);
-  color: var(--warning);
-}
-
-.ambient-debug__severity[data-severity="risk"] {
-  background: rgba(223, 41, 53, 0.14);
-  color: var(--danger);
-}
-
-.ambient-debug__reset {
-  margin-left: auto;
-}
-
-@media (max-width: 640px) {
-  .ambient-debug__controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .ambient-debug__reset {
-    width: 100%;
-  }
 }
 
