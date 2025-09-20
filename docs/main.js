@@ -6,7 +6,7 @@ function getThemeColors() {
       pm25: '#FDCA40',
       pm10: '#811EEB',
       pm1: '#0047AB',
-      grid: '#F5C9CE',
+      grid: '#D9E0EE',
       text: '#080708',
       panel: '#FFFFFF'
     };
@@ -22,7 +22,7 @@ function getThemeColors() {
     pm25: read('--chart-pm25', read('--warning', '#FDCA40')),
     pm10: read('--chart-pm10', read('--secondary', '#811EEB')),
     pm1: read('--chart-pm1', '#0047AB'),
-    grid: read('--border', '#F5C9CE'),
+    grid: read('--border', '#D9E0EE'),
     text: read('--text', '#080708'),
     panel: read('--panel', '#FFFFFF')
   };
