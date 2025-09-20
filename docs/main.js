@@ -197,6 +197,19 @@ function applySeverityDataset(el, severity) {
   }
 }
 
+function updateAmbientQuality({ pm25, pct, severity }) {
+  if (typeof window === 'undefined') return;
+  const ambient = window.AmbientParticles;
+  if (!ambient || typeof ambient.setQuality !== 'function') {
+    return;
+  }
+
+  ambient.setQuality({ pm25, pctOver: pct, severity });
+  if (severity === 'risk' && typeof ambient.pulse === 'function') {
+    ambient.pulse();
+  }
+}
+
 function setPctPill(pct) {
   const pctPill = document.getElementById('kpi-pct-pill');
   const pctIcon = document.getElementById('kpi-pct-icon');
@@ -1423,6 +1436,7 @@ async function reloadDashboard() {
       DATASETS[range] = ds;
     });
 
+    const stats24 = DATASETS['24h']?.kpis || null;
     const s24 = DATASETS['24h']?.data ?? [];
     const lastVal = s24[s24.length - 1];
     const prevVal = s24[s24.length - 2];
@@ -1430,11 +1444,13 @@ async function reloadDashboard() {
     const arrowEl = document.getElementById('kpi-last-arrow');
     const valueEl = document.getElementById('kpi-last');
 
+    let severity = null;
     if (lastVal) {
       const val = lastVal.pm25 != null ? Math.round(lastVal.pm25) : null;
       const displayVal = val != null ? val.toString() : '–';
       setKpiValue('kpi-last', displayVal);
-      applySeverityDataset(valueEl, classifyPm25Severity(lastVal.pm25));
+      severity = classifyPm25Severity(lastVal.pm25);
+      applySeverityDataset(valueEl, severity);
       const measuredAt = dayjs(lastVal.ts).tz(tz);
       const measuredAtStr = measuredAt.format('HH:mm').replace(':', ' h ');
       if (timeEl) timeEl.textContent = `µg/m³ à ${measuredAtStr}`;
@@ -1472,6 +1488,12 @@ async function reloadDashboard() {
         arrowEl.className = 'kpi-trend-icon';
       }
     }
+
+    updateAmbientQuality({
+      pm25: lastVal?.pm25 ?? null,
+      pct: stats24?.pct ?? null,
+      severity,
+    });
 
     if (DATASETS[currentRange]) {
       plotRange(currentRange);
