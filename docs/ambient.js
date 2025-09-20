@@ -73,9 +73,12 @@
 
     const maxParticles = state.isMobile ? 18 : 42;
     const minParticles = state.isMobile ? 6 : 12;
-    const desired = Math.round(
-      minParticles + (maxParticles - minParticles) * clamp(state.currentIntensity, 0, 1)
+    const normalizedIntensity = clamp(state.currentIntensity, 0, 1);
+    const baseline = Math.round(
+      minParticles + (maxParticles - minParticles) * normalizedIntensity
     );
+    const multiplier = state.currentIntensity > 1 ? state.currentIntensity : 1;
+    const desired = Math.round(baseline * multiplier);
 
     state.particles.length = desired;
     for (let i = 0; i < desired; i += 1) {
@@ -182,7 +185,7 @@
     const numericPct = Number(pctOver);
 
     if (severity === 'risk') {
-      base = 1;
+      base = 100;
     } else if (severity === 'warn') {
       base = 0.55;
     } else if (severity === 'good') {
@@ -202,14 +205,15 @@
     }
 
     if (Number.isFinite(numericPct)) {
-      base = Math.max(base, clamp(numericPct / 25, 0.15, 1));
+      const pctClampMax = severity === 'risk' ? 100 : 1;
+      base = Math.max(base, clamp(numericPct / 25, 0.15, pctClampMax));
     }
 
-    state.targetIntensity = clamp(base, 0.15, 1);
+    state.targetIntensity = clamp(base, 0.15, 100);
   }
 
   function pulse() {
-    state.currentIntensity = clamp(state.currentIntensity + 0.15, 0.15, 1);
+    state.currentIntensity = clamp(state.currentIntensity + 0.15, 0.15, 100);
   }
 
   document.addEventListener('DOMContentLoaded', init, { once: true });
