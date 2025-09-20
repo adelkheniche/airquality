@@ -24,29 +24,86 @@
   --chart-pm10: #811EEB;
   --chart-pm1: #0047AB;
   --shadow-soft: 0 24px 48px -32px rgba(8, 7, 8, 0.18);
+  --display-font: 'Bricolage Grotesque', 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  --body-font: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 }
 
 body {
   color: var(--text);
   background: var(--background);
-  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-family: var(--body-font);
   font-size: 16px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   font-feature-settings: 'liga' 1, 'kern' 1;
 }
 
+body.has-ambient {
+  position: relative;
+  overflow-x: hidden;
+}
+
 h1,
 h2,
 h3 {
   color: var(--text);
-  letter-spacing: -0.01em;
-  font-family: 'Playfair Display', 'Times New Roman', serif;
+  font-family: var(--display-font);
+  letter-spacing: -0.015em;
+  font-synthesis: none;
 }
 
 h1 {
   font-size: clamp(26px, 2.6vw, 28px);
   font-weight: 600;
+}
+
+@supports (font-variation-settings: 'wdth' 120) {
+  h1,
+  h2,
+  h3 {
+    font-variation-settings: 'wdth' 112, 'wght' 600;
+  }
+}
+
+.page-shell {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.ambient-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: radial-gradient(circle at 20% 20%, rgba(var(--secondary-rgb), 0.15), transparent 55%),
+              radial-gradient(circle at 80% 15%, rgba(var(--warning-rgb), 0.12), transparent 50%),
+              linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(245, 247, 250, 0.95));
+}
+
+.ambient-gradient {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: screen;
+  background: radial-gradient(circle at 50% 80%, rgba(var(--primary-rgb), 0.08), transparent 70%);
+}
+
+.ambient-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.ambient-layer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.45) 0%, rgba(245, 247, 250, 0.9) 100%);
 }
 
 .brand {
@@ -90,11 +147,13 @@ h1 {
 }
 
 .brand-title {
-  font-family: 'Playfair Display', 'Times New Roman', serif;
-  font-size: clamp(28px, 2.8vw, 32px);
-  font-weight: 600;
-  letter-spacing: -0.02em;
+  font-family: var(--display-font);
+  font-size: clamp(32px, 4vw, 46px);
+  font-weight: 650;
+  letter-spacing: -0.045em;
   color: var(--text);
+  text-transform: uppercase;
+  line-height: 0.95;
 }
 
 .brand-subtitle {
@@ -127,7 +186,7 @@ h1 {
   }
 
   .brand-title {
-    font-size: clamp(24px, 7vw, 30px);
+    font-size: clamp(26px, 10vw, 38px);
   }
 
   .brand-subtitle {
@@ -217,8 +276,10 @@ h3 {
 .kpi-label {
   font-size: 0.75rem;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.12em;
   color: var(--caption);
+  font-family: var(--display-font);
+  text-transform: uppercase;
 }
 
 .kpi-icon {
@@ -328,10 +389,30 @@ h3 {
 }
 
 .section-title {
-  font-size: 20px;
+  font-size: clamp(18px, 2vw, 22px);
   font-weight: 600;
   color: var(--text);
-  font-family: 'Playfair Display', 'Times New Roman', serif;
+  font-family: var(--display-font);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+}
+
+.section-title::after {
+  content: "";
+  height: 2px;
+  background: rgba(var(--secondary-rgb), 0.24);
+  width: 56px;
+  margin-left: 16px;
+  border-radius: 999px;
+}
+
+@media (max-width: 640px) {
+  .section-title::after {
+    width: 42px;
+    margin-left: 12px;
+  }
 }
 
 .summary-pills {
