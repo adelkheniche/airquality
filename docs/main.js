@@ -5,7 +5,6 @@ function getThemeColors() {
     return {
       pm25: '#FDCA40',
       pm10: '#811EEB',
-      pm1: '#0047AB',
       grid: '#D9E0EE',
       text: '#080708',
       panel: '#FFFFFF'
@@ -21,7 +20,6 @@ function getThemeColors() {
   return {
     pm25: read('--chart-pm25', read('--warning', '#FDCA40')),
     pm10: read('--chart-pm10', read('--secondary', '#811EEB')),
-    pm1: read('--chart-pm1', '#0047AB'),
     grid: read('--border', '#D9E0EE'),
     text: read('--text', '#080708'),
     panel: read('--panel', '#FFFFFF')
@@ -118,7 +116,7 @@ async function series(startISO, endISO) {
         const to = Math.min(total - 1, from + pageSize - 1);
         const { data, error } = await sb
           .from('readings')
-          .select('ts, pm1, pm25, pm10')
+          .select('ts, pm25, pm10')
           .gte('ts', startISO)
           .lte('ts', endISO)
           .order('ts', { ascending: true })
@@ -243,7 +241,7 @@ function renderSummary(id, serie) {
   const above = serie.filter(r => (r.pm25 ?? 0) > WHO_LINE).length;
   const max25 = Math.max(...serie.map(r => r.pm25 ?? 0));
   wrap.appendChild(chip(`Pics au-dessus du seuil : ${above}`));
-  wrap.appendChild(chip(`PM₂.₅ maximum : ${Math.round(max25)} µg/m³`));
+  wrap.appendChild(chip(`PM2.5 maximum : ${Math.round(max25)} µg/m³`));
 }
 
 function updateKpiCards(stats) {
@@ -278,17 +276,15 @@ function plotOne(containerId, serie, title, xRange) {
     const ts = r.ts || r.t || r.time || r.date || r['ts'];
     return dayjs(ts).tz('Europe/Paris').format();
   });
-  const y1 = serie.map(r => r.pm1  != null ? Math.round(r.pm1)  : null);
   const y25= serie.map(r => r.pm25 != null ? Math.round(r.pm25) : null);
   const y10= serie.map(r => r.pm10 != null ? Math.round(r.pm10) : null);
 
   const traces = [
-    { name:'PM₂.₅', x, y: y25, mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm25 } },
-    { name:'PM₁₀',  x, y: y10, mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm10 } },
-    { name:'PM₁',   x, y: y1,  mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm1  } },
+    { name:'PM2.5', x, y: y25, mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm25 } },
+    { name:'PM10',  x, y: y10, mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm10 } },
   ];
 
-  const allVals = [...y1, ...y25, ...y10].filter(v => v != null);
+  const allVals = [...y25, ...y10].filter(v => v != null);
   const ymax = allVals.length
     ? Math.max(WHO_LINE, Math.ceil(Math.max(...allVals) / 5) * 5)
     : WHO_LINE;
