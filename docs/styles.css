@@ -1,25 +1,29 @@
 /* Design tokens */
-/* Palette extraite de l'image de référence :
-   #0047AB, #080708, #DF2935, #FDC4A0, #811EEB */
+/* Palette principale :
+   Rouge DF2935, Violet 811EEB, Jaune FDCA40, Bleu 0047AB, Noir 080708 */
 :root {
-  --primary: #0047AB;
-  --primary-hover: #003B8F;
+  --primary: #DF2935;
+  --primary-hover: #C1202B;
+  --primary-active: #A31B24;
   --text: #080708;
   --secondary: #811EEB;
-  --caption: #575B6D;
-  --background: #F6F8FF;
-  --surface-soft: #E8EEFF;
+  --caption: #6C54A6;
+  --background: #FFF7F6;
+  --surface-soft: #FFE7E4;
   --panel: #FFFFFF;
-  --border: #D5DDF5;
+  --border: #F5C9CE;
   --success: #1E9E6A;
-  --warning: #F28F3B;
+  --warning: #FDCA40;
   --danger: #DF2935;
-  --primary-rgb: 0, 71, 171;
+  --primary-rgb: 223, 41, 53;
   --secondary-rgb: 129, 30, 235;
   --success-rgb: 30, 158, 106;
-  --warning-rgb: 242, 143, 59;
+  --warning-rgb: 253, 202, 64;
   --danger-rgb: 223, 41, 53;
-  --shadow-soft: 0 24px 48px -32px rgba(var(--primary-rgb), 0.28);
+  --chart-pm25: #FDCA40;
+  --chart-pm10: #811EEB;
+  --chart-pm1: #0047AB;
+  --shadow-soft: 0 24px 48px -32px rgba(var(--primary-rgb), 0.22);
 }
 
 body {
@@ -53,11 +57,11 @@ h1 {
   width: 64px;
   height: 64px;
   border-radius: 22px;
-  background: linear-gradient(140deg, #0047AB 0%, #811EEB 56%, #FDC4A0 100%);
-  box-shadow: 0 28px 40px -26px rgba(var(--primary-rgb), 0.35);
+  background: linear-gradient(140deg, #DF2935 0%, #811EEB 56%, #FDCA40 100%);
+  box-shadow: 0 28px 40px -26px rgba(var(--primary-rgb), 0.32);
   display: grid;
   place-items: center;
-  color: #F5F7FF;
+  color: #FFF9F8;
   position: relative;
   overflow: hidden;
 }
@@ -383,7 +387,7 @@ h3 {
 
 .tw-btn-primary {
   background: var(--primary);
-  color: #F5F7FF;
+  color: #FFF9F8;
 }
 
 .tw-btn-primary:hover {
@@ -391,7 +395,7 @@ h3 {
 }
 
 .tw-btn-primary:active {
-  background: #002F6C;
+  background: var(--primary-active);
 }
 
 .tw-btn-outline {
@@ -673,7 +677,7 @@ h3 {
 
 .activities-controls.is-open .activities-filter-toggle {
   background: var(--primary);
-  color: #F5F7FF;
+  color: #FFF9F8;
   border-color: var(--primary-hover);
   box-shadow: 0 20px 42px -32px rgba(var(--primary-rgb), 0.5);
 }
