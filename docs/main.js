@@ -3,12 +3,12 @@
 function getThemeColors() {
   if (typeof window === 'undefined' || typeof window.getComputedStyle !== 'function') {
     return {
-      pm25: '#424341',
-      pm10: '#AFA9B4',
-      pm1: '#AAAFAF',
-      grid: '#C3C8C8',
-      text: '#424341',
-      panel: '#FBF4EA'
+      pm25: '#FDCA40',
+      pm10: '#811EEB',
+      pm1: '#0047AB',
+      grid: '#F5C9CE',
+      text: '#080708',
+      panel: '#FFFFFF'
     };
   }
 
@@ -19,12 +19,12 @@ function getThemeColors() {
   };
 
   return {
-    pm25: read('--primary', '#424341'),
-    pm10: read('--secondary', '#AFA9B4'),
-    pm1: read('--warning', '#AAAFAF'),
-    grid: read('--border', '#C3C8C8'),
-    text: read('--text', '#424341'),
-    panel: read('--panel', '#FBF4EA')
+    pm25: read('--chart-pm25', read('--warning', '#FDCA40')),
+    pm10: read('--chart-pm10', read('--secondary', '#811EEB')),
+    pm1: read('--chart-pm1', '#0047AB'),
+    grid: read('--border', '#F5C9CE'),
+    text: read('--text', '#080708'),
+    panel: read('--panel', '#FFFFFF')
   };
 }
 
@@ -48,8 +48,8 @@ const WHO_LINE = 15; // µg/m³
 
 const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
 
-const HIGHLIGHT_FILL = 'rgba(255, 59, 48, 0.18)';
-const HIGHLIGHT_BORDER = 'rgba(255, 59, 48, 0.8)';
+const HIGHLIGHT_FILL = 'rgba(223, 41, 53, 0.16)';
+const HIGHLIGHT_BORDER = 'rgba(223, 41, 53, 0.8)';
 const ACTIVITIES_CACHE_TTL = 60 * 1000;
 const activitiesCache = Object.create(null);
 let highlightDetail = null;
