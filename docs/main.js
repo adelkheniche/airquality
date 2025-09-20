@@ -451,6 +451,22 @@ function setActiveActivityRow(eventId) {
   });
 }
 
+function clearAllSelected() {
+  // Clear the active activity selection
+  activitiesActiveId = null;
+  setActiveActivityRow(null);
+  
+  // Clear chart highlighting
+  highlightDetail = null;
+  applyChartHighlight();
+  
+  // Refresh the activities list to update the UI (hide clear button)
+  renderActivitiesList(activitiesLatestState.events, activitiesLatestState.range);
+  
+  // Dispatch clear event to notify other components
+  window.dispatchEvent(new CustomEvent('aq:clear-highlight'));
+}
+
 function focusChartOnEventDay(chart, startISO, endISO) {
   if (!chart || typeof Plotly === 'undefined' || typeof Plotly.relayout !== 'function') return;
 
@@ -696,6 +712,18 @@ function buildActivitiesControls(options = []) {
   });
 
   fields.appendChild(select);
+  
+  // Add clear selection button (only if there's an active selection)
+  if (activitiesActiveId != null) {
+    const clearButton = document.createElement('button');
+    clearButton.type = 'button';
+    clearButton.className = 'activities-clear-button';
+    clearButton.textContent = 'Effacer la sélection';
+    clearButton.title = 'Effacer toutes les activités sélectionnées';
+    clearButton.addEventListener('click', clearAllSelected);
+    fields.appendChild(clearButton);
+  }
+  
   wrap.appendChild(panel);
 
   let isOpen = false;
