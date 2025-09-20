@@ -22,7 +22,6 @@
   --danger-rgb: 223, 41, 53;
   --chart-pm25: #FDCA40;
   --chart-pm10: #811EEB;
-  --chart-pm1: #0047AB;
   --shadow-soft: 0 24px 48px -32px rgba(8, 7, 8, 0.18);
   --display-font: 'Bricolage Grotesque', 'Inter', 'Helvetica Neue', Arial, sans-serif;
   --body-font: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
@@ -237,9 +236,9 @@ h3 {
 }
 
 .kpi-label {
-  font-size: 0.75rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
   color: var(--caption);
   font-family: var(--display-font);
   text-transform: uppercase;
@@ -308,15 +307,15 @@ h3 {
 }
 
 .kpi-unit {
-  font-size: 0.75rem;
-  letter-spacing: 0.16em;
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
   color: var(--secondary);
   margin-bottom: 8px;
 }
 
 .kpi-sub {
   margin-top: 8px;
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   color: var(--secondary);
   letter-spacing: 0.02em;
 }
