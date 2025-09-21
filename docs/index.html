@@ -79,45 +79,21 @@
             <p id="kpi-last-time" class="card-caption">–</p>
           </article>
 
-          <nav class="anchor-actions" aria-label="Sections du tableau de bord">
-            <a class="anchor-pill" href="#section-historique">Historique</a>
-            <a class="anchor-pill" href="#section-activites">Activités</a>
-          </nav>
-        </section>
-
-        <section class="section-block" aria-labelledby="kpi-peaks-heading">
-          <article class="card metric-card">
-            <div class="metric-head">
-              <p id="kpi-peaks-heading" class="overline">Pics détectés</p>
-              <span class="metric-icon" aria-hidden="true">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M4 16.5L9.5 11L13 14.5L20 7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                  <path d="M20 12V7H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </span>
+          <div class="stat-pills" aria-live="polite" aria-label="Indicateurs principaux">
+            <div class="stat-pill" data-stat="peaks">
+              <p class="stat-pill__label">Pics détectés</p>
+              <span id="kpi-peaks" class="stat-pill__value tabular-nums">–</span>
+              <p class="stat-pill__caption">Total sur la période</p>
             </div>
-            <div class="metric-value">
-              <span id="kpi-peaks" class="metric-value__number tabular-nums">–</span>
+            <div class="stat-pill" data-stat="pct">
+              <p class="stat-pill__label">Temps au-dessus du seuil</p>
+              <div class="stat-pill__value-group">
+                <span id="kpi-pct" class="stat-pill__value tabular-nums">–</span>
+                <span id="kpi-pct-pill" class="stat-pill__badge">—</span>
+              </div>
+              <p class="stat-pill__caption">Part au-dessus du seuil OMS</p>
             </div>
-            <p class="metric-caption">Total sur la période</p>
-          </article>
-
-          <article class="card metric-card" aria-labelledby="kpi-pct-heading">
-            <div class="metric-head">
-              <p id="kpi-pct-heading" class="overline">Temps au-dessus du seuil</p>
-              <span id="kpi-pct-icon" class="metric-icon" aria-hidden="true">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M5 19H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-                  <path d="M7 16L11.5 7.5L14.5 13L17 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </span>
-            </div>
-            <div class="metric-value">
-              <span id="kpi-pct" class="metric-value__number tabular-nums">–</span>
-              <span id="kpi-pct-pill" class="status-pill">—</span>
-            </div>
-            <p class="metric-caption">Part au-dessus du seuil OMS</p>
-          </article>
+          </div>
         </section>
 
         <section class="section-block" id="section-historique" aria-labelledby="chart-title">
