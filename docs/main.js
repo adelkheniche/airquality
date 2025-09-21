@@ -280,8 +280,30 @@ function plotOne(containerId, serie, title, xRange) {
   const y10= serie.map(r => r.pm10 != null ? Math.round(r.pm10) : null);
 
   const traces = [
-    { name:'PM2.5', x, y: y25, mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm25 } },
-    { name:'PM10',  x, y: y10, mode:'lines', type:'scatter', line:{ width:4, color:COLORS.pm10 } },
+    {
+      name: 'PM2.5',
+      x,
+      y: y25,
+      type: 'bar',
+      marker: {
+        color: COLORS.pm25,
+        line: { color: COLORS.pm25, width: 0 }
+      },
+      offsetgroup: 'pm25',
+      hovertemplate: 'PM2.5 : %{y} µg/m³<extra></extra>'
+    },
+    {
+      name: 'PM10',
+      x,
+      y: y10,
+      type: 'bar',
+      marker: {
+        color: COLORS.pm10,
+        line: { color: COLORS.pm10, width: 0 }
+      },
+      offsetgroup: 'pm10',
+      hovertemplate: 'PM10 : %{y} µg/m³<extra></extra>'
+    }
   ];
 
   const allVals = [...y25, ...y10].filter(v => v != null);
@@ -296,6 +318,8 @@ function plotOne(containerId, serie, title, xRange) {
     paper_bgcolor: COLORS.panel,
     plot_bgcolor: COLORS.panel,
     font: { family: fontFamily, color: COLORS.text },
+    barmode: 'group',
+    bargap: 0.2,
     xaxis:{
       showgrid:true,
       gridcolor:COLORS.grid,
