@@ -199,56 +199,6 @@ h3 {
   }
 }
 
-.dashboard-grid {
-  display: grid;
-  gap: 24px;
-}
-
-.chart-card {
-  position: relative;
-}
-
-.kpi-stack {
-  display: grid;
-  gap: 24px;
-}
-
-@media (min-width: 1024px) {
-  .dashboard-grid {
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    grid-auto-rows: minmax(140px, auto);
-    align-items: stretch;
-  }
-
-  .chart-card {
-    grid-column: span 7;
-    grid-row: span 2;
-  }
-
-  .kpi-stack {
-    grid-column: span 5;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .kpi-stack .kpi-card {
-    flex: 1 1 0%;
-  }
-
-  .peaks-card {
-    grid-column: span 7;
-  }
-
-  .activities-card {
-    grid-column: span 5;
-  }
-}
-
-.kpi-stack .kpi-card {
-  height: auto;
-  min-height: 0;
-}
-
 .text-caption {
   font-size: 0.75rem;
   font-weight: 600;
