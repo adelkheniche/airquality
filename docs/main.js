@@ -195,55 +195,32 @@ function applySeverityDataset(el, severity) {
   }
 }
 
-function setCurrentStatusChip(severity) {
-  const chip = document.getElementById('kpi-last-chip');
-  if (!chip) return;
-  if (!severity) {
-    chip.textContent = '—';
-    chip.className = 'status-chip';
-    delete chip.dataset.severity;
-    return;
-  }
-  chip.textContent = severity === 'good' ? 'OK' : '⚠︎';
-  chip.className = 'status-chip';
-  chip.dataset.severity = severity;
-}
-
 function setPctPill(pct) {
-  const badge = document.getElementById('kpi-pct-pill');
-  const statContainer = document.querySelector('.stat-pill[data-stat="pct"]');
-  let state = null;
-  if (Number.isFinite(pct)) {
+  const pctPill = document.getElementById('kpi-pct-pill');
+  const pctIcon = document.getElementById('kpi-pct-icon');
+  let state = 'ok';
+  if (pct > 20) {
+    state = 'risk';
+  } else if (pct > 10) {
+    state = 'warn';
+  } else {
     state = 'ok';
-    if (pct > 20) {
-      state = 'risk';
-    } else if (pct > 10) {
-      state = 'warn';
-    }
   }
-  if (badge) {
+  if (pctPill) {
     if (state === 'risk') {
-      badge.textContent = 'À risque';
+      pctPill.className = 'status-pill status-pill--risk';
+      pctPill.textContent = 'À risque';
     } else if (state === 'warn') {
-      badge.textContent = 'À surveiller';
-    } else if (state === 'ok') {
-      badge.textContent = 'OK';
+      pctPill.className = 'status-pill status-pill--warn';
+      pctPill.textContent = 'À surveiller';
     } else {
-      badge.textContent = '—';
+      pctPill.className = 'status-pill status-pill--ok';
+      pctPill.textContent = 'OK';
     }
-    if (state) {
-      badge.dataset.state = state;
-    } else {
-      delete badge.dataset.state;
-    }
-    badge.classList.add('stat-pill__badge');
+    pctPill.dataset.state = state;
   }
-  if (statContainer) {
-    if (state) {
-      statContainer.dataset.state = state;
-    } else {
-      delete statContainer.dataset.state;
-    }
+  if (pctIcon) {
+    pctIcon.dataset.state = state;
   }
 }
 
@@ -274,7 +251,7 @@ function updateKpiCards(stats) {
   const pctValue = Number.isFinite(pctRaw) ? `${Math.round(pctRaw)}%` : '–';
   setKpiValue('kpi-peaks', totalValue);
   setKpiValue('kpi-pct', pctValue);
-  setPctPill(Number.isFinite(pctRaw) ? pctRaw : null);
+  setPctPill(Number.isFinite(pctRaw) ? pctRaw : 0);
 }
 
 function renderPeaksList(peaks, tz = 'Europe/Paris') {
@@ -1457,7 +1434,6 @@ async function reloadDashboard() {
       setKpiValue('kpi-last', displayVal);
       severity = classifyPm25Severity(lastVal.pm25);
       applySeverityDataset(valueEl, severity);
-      setCurrentStatusChip(severity);
       const measuredAt = dayjs(lastVal.ts).tz(tz);
       const measuredAtStr = measuredAt.format('HH:mm').replace(':', ' h ');
       if (timeEl) timeEl.textContent = `µg/m³ à ${measuredAtStr}`;
@@ -1489,7 +1465,6 @@ async function reloadDashboard() {
     } else {
       setKpiValue('kpi-last', '–');
       applySeverityDataset(valueEl, null);
-      setCurrentStatusChip(null);
       if (timeEl) timeEl.textContent = 'Pas de relevé';
       if (arrowEl) {
         arrowEl.textContent = '';
