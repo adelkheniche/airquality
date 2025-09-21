@@ -65,94 +65,95 @@
 
   </header>
 
-  <main class="layout-container pb-16 space-y-10">
+  <main class="layout-container pb-16">
 
-    <!-- KPIs (placeholder simples, on garde la logique en place) -->
-    <section class="grid gap-6 md:grid-cols-12">
-      <div class="card kpi-card md:col-span-4">
-        <div class="kpi-header">
-          <p class="kpi-label">Pics détectés</p>
-          <span class="kpi-icon" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 16.5L9.5 11L13 14.5L20 7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M20 12V7H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
+    <section class="dashboard-grid">
+      <!-- Trend (bar chart) -->
+      <div class="card chart-card">
+        <div class="section-header">
+          <h2 id="chart-title" class="section-title">Aujourd’hui (24 h)</h2>
+          <div class="summary-pills" id="chart-summary"></div>
         </div>
-        <div class="kpi-metric">
-          <div class="kpi-value-wrap">
-            <span id="kpi-peaks" class="kpi-value tabular-nums">–</span>
+        <div id="chart-main" class="h-72"></div>
+        <div class="button-bar">
+          <button class="tw-btn tw-btn-primary" data-range="24h">24 h</button>
+          <button class="tw-btn tw-btn-outline" data-range="7j">7 jours</button>
+          <button class="tw-btn tw-btn-outline" data-range="30j">30 jours</button>
+          <button class="tw-btn tw-btn-outline" data-range="debut">Depuis le début</button>
+        </div>
+      </div>
+
+      <!-- KPI stack -->
+      <div class="kpi-stack" aria-label="Indicateurs clés">
+        <div class="card kpi-card">
+          <div class="kpi-header">
+            <p class="kpi-label">PM2.5 actuel</p>
+            <span class="kpi-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5 16.5a7 7 0 1 1 14 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M12 12l3-4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <circle cx="12" cy="12" r="1.25" fill="currentColor"/>
+              </svg>
+            </span>
           </div>
-        </div>
-        <p class="kpi-sub">Total sur la période</p>
-      </div>
-
-      <div class="card kpi-card md:col-span-4">
-        <div class="kpi-header">
-          <p class="kpi-label">PM2.5 actuel</p>
-          <span class="kpi-icon" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5 16.5a7 7 0 1 1 14 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M12 12l3-4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="12" cy="12" r="1.25" fill="currentColor"/>
-            </svg>
-          </span>
-        </div>
-        <div class="kpi-metric">
-          <div class="kpi-value-wrap">
-            <span id="kpi-last" class="kpi-value tabular-nums">–</span>
-            <span class="kpi-unit">µg/m³</span>
+          <div class="kpi-metric">
+            <div class="kpi-value-wrap">
+              <span id="kpi-last" class="kpi-value tabular-nums">–</span>
+              <span class="kpi-unit">µg/m³</span>
+            </div>
+            <span id="kpi-last-arrow" class="kpi-trend-icon" aria-hidden="true"></span>
           </div>
-          <span id="kpi-last-arrow" class="kpi-trend-icon" aria-hidden="true"></span>
+          <p id="kpi-last-time" class="kpi-sub">–</p>
         </div>
-        <p id="kpi-last-time" class="kpi-sub">–</p>
-      </div>
 
-      <div class="card kpi-card md:col-span-4">
-        <div class="kpi-header">
-          <p class="kpi-label">Temps au-dessus du seuil</p>
-          <span id="kpi-pct-icon" class="kpi-icon" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5 19H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M7 16L11.5 7.5L14.5 13L17 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-        </div>
-        <div class="kpi-metric">
-          <div class="kpi-value-wrap">
-            <span id="kpi-pct" class="kpi-value tabular-nums">–</span>
+        <div class="card kpi-card">
+          <div class="kpi-header">
+            <p class="kpi-label">Pics détectés</p>
+            <span class="kpi-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M4 16.5L9.5 11L13 14.5L20 7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M20 12V7H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
           </div>
-          <span id="kpi-pct-pill" class="status-pill">—</span>
+          <div class="kpi-metric">
+            <div class="kpi-value-wrap">
+              <span id="kpi-peaks" class="kpi-value tabular-nums">–</span>
+            </div>
+          </div>
+          <p class="kpi-sub">Total sur la période</p>
         </div>
-        <p class="kpi-sub">Part au-dessus du seuil OMS</p>
-      </div>
-    </section>
 
-    <!-- Trend (single chart with range buttons) -->
-    <section class="card">
-      <div class="section-header">
-        <h2 id="chart-title" class="section-title">Aujourd’hui (24 h)</h2>
-        <div class="summary-pills" id="chart-summary"></div>
-      </div>
-      <div id="chart-main" class="h-72"></div>
-      <div class="button-bar">
-        <button class="tw-btn tw-btn-primary" data-range="24h">24 h</button>
-        <button class="tw-btn tw-btn-outline" data-range="7j">7 jours</button>
-        <button class="tw-btn tw-btn-outline" data-range="30j">30 jours</button>
-        <button class="tw-btn tw-btn-outline" data-range="debut">Depuis le début</button>
-      </div>
-    </section>
-
-    <!-- Table + Pics (structure légère) -->
-    <section class="grid gap-6 lg:grid-cols-12">
-      <div class="card overflow-hidden lg:col-span-7">
-        <h3 class="section-title mb-4">Activités → Risque</h3>
-        <div id="cell-activite"></div>
+        <div class="card kpi-card">
+          <div class="kpi-header">
+            <p class="kpi-label">Temps au-dessus du seuil</p>
+            <span id="kpi-pct-icon" class="kpi-icon" aria-hidden="true">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5 19H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                <path d="M7 16L11.5 7.5L14.5 13L17 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </span>
+          </div>
+          <div class="kpi-metric">
+            <div class="kpi-value-wrap">
+              <span id="kpi-pct" class="kpi-value tabular-nums">–</span>
+            </div>
+            <span id="kpi-pct-pill" class="status-pill">—</span>
+          </div>
+          <p class="kpi-sub">Part au-dessus du seuil OMS</p>
+        </div>
       </div>
 
-      <div class="card lg:col-span-5">
+      <!-- Peaks list -->
+      <div class="card peaks-card">
         <h3 class="section-title mb-4">Pics détectés</h3>
         <ul id="list-peaks" class="stacked-list"></ul>
+      </div>
+
+      <!-- Activities -->
+      <div class="card activities-card overflow-hidden">
+        <h3 class="section-title mb-4">Activités → Risque</h3>
+        <div id="cell-activite"></div>
       </div>
     </section>
 
