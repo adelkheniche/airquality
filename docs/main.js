@@ -210,31 +210,40 @@ function setCurrentStatusChip(severity) {
 }
 
 function setPctPill(pct) {
-  const pctPill = document.getElementById('kpi-pct-pill');
-  const pctIcon = document.getElementById('kpi-pct-icon');
-  let state = 'ok';
-  if (pct > 20) {
-    state = 'risk';
-  } else if (pct > 10) {
-    state = 'warn';
-  } else {
+  const badge = document.getElementById('kpi-pct-pill');
+  const statContainer = document.querySelector('.stat-pill[data-stat="pct"]');
+  let state = null;
+  if (Number.isFinite(pct)) {
     state = 'ok';
-  }
-  if (pctPill) {
-    if (state === 'risk') {
-      pctPill.className = 'status-pill status-pill--risk';
-      pctPill.textContent = 'À risque';
-    } else if (state === 'warn') {
-      pctPill.className = 'status-pill status-pill--warn';
-      pctPill.textContent = 'À surveiller';
-    } else {
-      pctPill.className = 'status-pill status-pill--ok';
-      pctPill.textContent = 'OK';
+    if (pct > 20) {
+      state = 'risk';
+    } else if (pct > 10) {
+      state = 'warn';
     }
-    pctPill.dataset.state = state;
   }
-  if (pctIcon) {
-    pctIcon.dataset.state = state;
+  if (badge) {
+    if (state === 'risk') {
+      badge.textContent = 'À risque';
+    } else if (state === 'warn') {
+      badge.textContent = 'À surveiller';
+    } else if (state === 'ok') {
+      badge.textContent = 'OK';
+    } else {
+      badge.textContent = '—';
+    }
+    if (state) {
+      badge.dataset.state = state;
+    } else {
+      delete badge.dataset.state;
+    }
+    badge.classList.add('stat-pill__badge');
+  }
+  if (statContainer) {
+    if (state) {
+      statContainer.dataset.state = state;
+    } else {
+      delete statContainer.dataset.state;
+    }
   }
 }
 
@@ -265,7 +274,7 @@ function updateKpiCards(stats) {
   const pctValue = Number.isFinite(pctRaw) ? `${Math.round(pctRaw)}%` : '–';
   setKpiValue('kpi-peaks', totalValue);
   setKpiValue('kpi-pct', pctValue);
-  setPctPill(Number.isFinite(pctRaw) ? pctRaw : 0);
+  setPctPill(Number.isFinite(pctRaw) ? pctRaw : null);
 }
 
 function renderPeaksList(peaks, tz = 'Europe/Paris') {
