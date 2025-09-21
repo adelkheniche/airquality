@@ -11,7 +11,7 @@
     href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..72,400..800&family=Inter:wght@400;500;600;700&display=swap"
     rel="stylesheet"
   />
-  
+
   <!-- Tailwind (CDN) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -41,122 +41,120 @@
 
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body class="min-h-screen">
+<body class="app-body">
 
-  <div class="page-shell">
+  <div class="app-shell">
 
-  <!-- Header -->
-  <header class="layout-container py-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-    <div class="brand flex items-center gap-5">
-      <div class="brand-mark" aria-hidden="true">
-        <svg class="brand-icon" viewBox="0 0 64 64" role="img" focusable="false">
-          <path d="M18 46 L29 18 L40 46" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-          <path d="M23.5 33.5H33.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
-          <path d="M40.5 22c6.6 0 11.5 4.9 11.5 11.5S47.1 45 40.5 45c-4.9 0-8.7-2.6-10.9-6.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-          <path d="M45.5 38.2l6.3 6.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-          <path d="M35.2 26.2c3.5-3.1 9.4-3.3 12.9-0.3" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.75" />
-        </svg>
-      </div>
-      <div class="brand-copy">
-        <h1 class="brand-title text-balance">Atelier Céramique</h1>
-        <p class="brand-subtitle">Niveau de particules</p>
-      </div>
-    </div>
-
-  </header>
-
-  <main class="layout-container pb-16 space-y-10">
-
-    <!-- KPIs (placeholder simples, on garde la logique en place) -->
-    <section class="grid gap-6 md:grid-cols-12">
-      <div class="card kpi-card md:col-span-4">
-        <div class="kpi-header">
-          <p class="kpi-label">Pics détectés</p>
-          <span class="kpi-icon" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M4 16.5L9.5 11L13 14.5L20 7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M20 12V7H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
+    <header class="app-bar" role="banner">
+      <div class="app-container app-bar__inner">
+        <div class="app-bar__titles">
+          <p class="app-bar__subtitle">Niveau de particules</p>
+          <h1 class="app-bar__title">Atelier Céramique</h1>
         </div>
-        <div class="kpi-metric">
-          <div class="kpi-value-wrap">
-            <span id="kpi-peaks" class="kpi-value tabular-nums">–</span>
-          </div>
-        </div>
-        <p class="kpi-sub">Total sur la période</p>
+        <button class="icon-button" type="button" aria-label="Paramètres">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M19.4 15.5a1.27 1.27 0 0 0 1.14-.72 9.16 9.16 0 0 0 0-5.56 1.27 1.27 0 0 0-1.14-.72 1.24 1.24 0 0 1-1.16-.84 1.26 1.26 0 0 1 .31-1.32 8.79 8.79 0 0 0-3.93-2.27 1.24 1.24 0 0 1-1-.95 1.26 1.26 0 0 0-1.24-1h-1.36a1.26 1.26 0 0 0-1.24 1 1.24 1.24 0 0 1-1 .95 8.79 8.79 0 0 0-3.93 2.27 1.26 1.26 0 0 1 .31 1.32 1.24 1.24 0 0 1-1.16.84 1.27 1.27 0 0 0-1.14.72 9.16 9.16 0 0 0 0 5.56 1.27 1.27 0 0 0 1.14.72 1.24 1.24 0 0 1 1.16.84 1.26 1.26 0 0 1-.31 1.32 8.79 8.79 0 0 0 3.93 2.27 1.24 1.24 0 0 1 1 .95 1.26 1.26 0 0 0 1.24 1h1.36a1.26 1.26 0 0 0 1.24-1 1.24 1.24 0 0 1 1-.95 8.79 8.79 0 0 0 3.93-2.27 1.26 1.26 0 0 1-.31-1.32 1.24 1.24 0 0 1 1.16-.84Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
+    </header>
 
-      <div class="card kpi-card md:col-span-4">
-        <div class="kpi-header">
-          <p class="kpi-label">PM2.5 actuel</p>
-          <span class="kpi-icon" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5 16.5a7 7 0 1 1 14 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M12 12l3-4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="12" cy="12" r="1.25" fill="currentColor"/>
-            </svg>
-          </span>
-        </div>
-        <div class="kpi-metric">
-          <div class="kpi-value-wrap">
-            <span id="kpi-last" class="kpi-value tabular-nums">–</span>
-            <span class="kpi-unit">µg/m³</span>
-          </div>
-          <span id="kpi-last-arrow" class="kpi-trend-icon" aria-hidden="true"></span>
-        </div>
-        <p id="kpi-last-time" class="kpi-sub">–</p>
-      </div>
+    <main id="contenu-principal" class="app-main">
+      <div class="app-container app-stack">
 
-      <div class="card kpi-card md:col-span-4">
-        <div class="kpi-header">
-          <p class="kpi-label">Temps au-dessus du seuil</p>
-          <span id="kpi-pct-icon" class="kpi-icon" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M5 19H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-              <path d="M7 16L11.5 7.5L14.5 13L17 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-        </div>
-        <div class="kpi-metric">
-          <div class="kpi-value-wrap">
-            <span id="kpi-pct" class="kpi-value tabular-nums">–</span>
-          </div>
-          <span id="kpi-pct-pill" class="status-pill">—</span>
-        </div>
-        <p class="kpi-sub">Part au-dessus du seuil OMS</p>
-      </div>
-    </section>
+        <section class="section-block" id="section-apercu">
+          <article class="card card--highlight" aria-live="polite">
+            <div class="card-overline">
+              <p class="overline">PM2.5 actuel</p>
+              <span id="kpi-last-chip" class="status-chip">—</span>
+            </div>
+            <div class="current-value">
+              <div class="current-value__group">
+                <span id="kpi-last" class="current-value__value tabular-nums">–</span>
+                <span class="current-value__unit">µg/m³</span>
+              </div>
+              <span id="kpi-last-arrow" class="current-value__trend" aria-hidden="true"></span>
+            </div>
+            <p id="kpi-last-time" class="card-caption">–</p>
+          </article>
 
-    <!-- Trend (single chart with range buttons) -->
-    <section class="card">
-      <div class="section-header">
-        <h2 id="chart-title" class="section-title">Aujourd’hui (24 h)</h2>
-        <div class="summary-pills" id="chart-summary"></div>
-      </div>
-      <div id="chart-main" class="h-72"></div>
-      <div class="button-bar">
-        <button class="tw-btn tw-btn-primary" data-range="24h">24 h</button>
-        <button class="tw-btn tw-btn-outline" data-range="7j">7 jours</button>
-        <button class="tw-btn tw-btn-outline" data-range="30j">30 jours</button>
-        <button class="tw-btn tw-btn-outline" data-range="debut">Depuis le début</button>
-      </div>
-    </section>
+          <nav class="anchor-actions" aria-label="Sections du tableau de bord">
+            <a class="anchor-pill" href="#section-historique">Historique</a>
+            <a class="anchor-pill" href="#section-activites">Activités</a>
+          </nav>
+        </section>
 
-    <!-- Table + Pics (structure légère) -->
-    <section class="grid gap-6 lg:grid-cols-12">
-      <div class="card overflow-hidden lg:col-span-7">
-        <h3 class="section-title mb-4">Activités → Risque</h3>
-        <div id="cell-activite"></div>
-      </div>
+        <section class="section-block" aria-labelledby="kpi-peaks-heading">
+          <article class="card metric-card">
+            <div class="metric-head">
+              <p id="kpi-peaks-heading" class="overline">Pics détectés</p>
+              <span class="metric-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 16.5L9.5 11L13 14.5L20 7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M20 12V7H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+            </div>
+            <div class="metric-value">
+              <span id="kpi-peaks" class="metric-value__number tabular-nums">–</span>
+            </div>
+            <p class="metric-caption">Total sur la période</p>
+          </article>
 
-      <div class="card lg:col-span-5">
-        <h3 class="section-title mb-4">Pics détectés</h3>
-        <ul id="list-peaks" class="stacked-list"></ul>
-      </div>
-    </section>
+          <article class="card metric-card" aria-labelledby="kpi-pct-heading">
+            <div class="metric-head">
+              <p id="kpi-pct-heading" class="overline">Temps au-dessus du seuil</p>
+              <span id="kpi-pct-icon" class="metric-icon" aria-hidden="true">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M5 19H19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                  <path d="M7 16L11.5 7.5L14.5 13L17 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+            </div>
+            <div class="metric-value">
+              <span id="kpi-pct" class="metric-value__number tabular-nums">–</span>
+              <span id="kpi-pct-pill" class="status-pill">—</span>
+            </div>
+            <p class="metric-caption">Part au-dessus du seuil OMS</p>
+          </article>
+        </section>
 
-  </main>
+        <section class="section-block" id="section-historique" aria-labelledby="chart-title">
+          <article class="card chart-card">
+            <div class="section-header">
+              <h2 id="chart-title" class="section-title">Aujourd’hui (24 h)</h2>
+              <div class="summary-pills" id="chart-summary"></div>
+            </div>
+            <div id="chart-main" class="chart-area" aria-live="polite"></div>
+          </article>
+        </section>
+
+        <section class="section-block" id="section-activites" aria-label="Activités et pics détectés">
+          <article class="card">
+            <h2 class="section-title">Activités → Risque</h2>
+            <div id="cell-activite"></div>
+          </article>
+
+          <article class="card">
+            <h2 class="section-title">Pics détectés</h2>
+            <ul id="list-peaks" class="stacked-list"></ul>
+          </article>
+        </section>
+
+      </div>
+    </main>
+
+    <nav class="range-bar" aria-label="Filtrer la période">
+      <div class="app-container range-bar__inner">
+        <button class="range-pill tw-btn tw-btn-primary" data-range="24h" type="button">24 h</button>
+        <button class="range-pill tw-btn tw-btn-outline" data-range="7j" type="button">7 jours</button>
+        <button class="range-pill tw-btn tw-btn-outline" data-range="30j" type="button">30 jours</button>
+        <button class="range-pill tw-btn tw-btn-outline" data-range="debut" type="button">Depuis le début</button>
+      </div>
+    </nav>
+
+  </div>
 
   <!-- Libs -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -179,6 +177,5 @@
   <!-- Config + App -->
   <script src="config.js"></script>
   <script src="main.js"></script>
-</div>
 </body>
 </html>

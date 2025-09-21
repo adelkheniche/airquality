@@ -195,6 +195,20 @@ function applySeverityDataset(el, severity) {
   }
 }
 
+function setCurrentStatusChip(severity) {
+  const chip = document.getElementById('kpi-last-chip');
+  if (!chip) return;
+  if (!severity) {
+    chip.textContent = '—';
+    chip.className = 'status-chip';
+    delete chip.dataset.severity;
+    return;
+  }
+  chip.textContent = severity === 'good' ? 'OK' : '⚠︎';
+  chip.className = 'status-chip';
+  chip.dataset.severity = severity;
+}
+
 function setPctPill(pct) {
   const pctPill = document.getElementById('kpi-pct-pill');
   const pctIcon = document.getElementById('kpi-pct-icon');
@@ -1434,6 +1448,7 @@ async function reloadDashboard() {
       setKpiValue('kpi-last', displayVal);
       severity = classifyPm25Severity(lastVal.pm25);
       applySeverityDataset(valueEl, severity);
+      setCurrentStatusChip(severity);
       const measuredAt = dayjs(lastVal.ts).tz(tz);
       const measuredAtStr = measuredAt.format('HH:mm').replace(':', ' h ');
       if (timeEl) timeEl.textContent = `µg/m³ à ${measuredAtStr}`;
@@ -1465,6 +1480,7 @@ async function reloadDashboard() {
     } else {
       setKpiValue('kpi-last', '–');
       applySeverityDataset(valueEl, null);
+      setCurrentStatusChip(null);
       if (timeEl) timeEl.textContent = 'Pas de relevé';
       if (arrowEl) {
         arrowEl.textContent = '';
