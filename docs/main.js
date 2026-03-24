@@ -1093,6 +1093,16 @@ function createActivityRow(evt) {
     titleBlock.appendChild(metrics);
   }
 
+  const particleValue = resolveActivityParticleValue(pm25, points);
+  const particleValueEl = document.createElement('span');
+  particleValueEl.className = 'activity-particle-value tabular-nums';
+  if (Number.isFinite(particleValue)) {
+    particleValueEl.textContent = `${NUMBER_FORMAT_1.format(particleValue)} µg/m³`;
+  } else {
+    particleValueEl.textContent = '— µg/m³';
+  }
+  sparklineWrap.appendChild(particleValueEl);
+
   if (points.length) {
     const svg = createSparkline(points, pm25, timeLabel);
     sparklineWrap.appendChild(svg);
@@ -1264,6 +1274,20 @@ function formatActivityMetrics(pm25 = {}, points = []) {
   const maxFormatted = formatMetricValue(maxValue ?? fallbackMax);
 
   return `Min ${minFormatted} · Moy ${meanFormatted} · Max ${maxFormatted} µg/m³`;
+}
+
+function resolveActivityParticleValue(pm25 = {}, points = []) {
+  const meanCandidates = [pm25.mean, pm25.avg, pm25.average, pm25.pm25_mean];
+  const maxCandidates = [pm25.max, pm25.max_value, pm25.maximum, pm25.pm25_max];
+  const meanValue = firstFinite(meanCandidates);
+  const maxValue = firstFinite(maxCandidates);
+  if (Number.isFinite(meanValue)) return meanValue;
+  if (Number.isFinite(maxValue)) return maxValue;
+  const numericPoints = Array.isArray(points)
+    ? points.filter(value => Number.isFinite(value))
+    : [];
+  if (!numericPoints.length) return null;
+  return numericPoints.reduce((sum, value) => sum + value, 0) / numericPoints.length;
 }
 
 function firstFinite(values = []) {

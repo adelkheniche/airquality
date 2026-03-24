@@ -907,7 +907,15 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  width: 80px;
+  gap: 10px;
+  min-width: 172px;
+}
+
+.activity-particle-value {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
 }
 
 .activity-sparkline-svg {
@@ -928,4 +936,3 @@ h3 {
   font-size: 0.9375rem;
   color: var(--secondary);
 }
-
