@@ -64,6 +64,10 @@ let activitiesFilterMode = ACTIVITIES_FILTER_DEFAULT;
 let activitiesFilterOptions = [];
 let activitiesLatestState = { range: null, events: [] };
 const ACTIVITY_DAY_LABELS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
+const GOOGLE_CALENDAR_EMBED_URL = (
+  window.GOOGLE_CALENDAR_EMBED_URL
+  || 'https://calendar.google.com/calendar/embed?src=sji17cho35m52lhecchvsfqn08%40group.calendar.google.com&ctz=Europe%2FParis'
+);
 
 window.addEventListener('aq:highlight', (event) => {
   const normalized = normalizeHighlightDetail(event?.detail);
@@ -526,7 +530,12 @@ async function loadActivitiesForRange(range, { preferCache = true } = {}) {
       return;
     }
     console.error('Impossible de charger les activités :', error);
-    container.textContent = 'N/A';
+    container.innerHTML = '';
+    const message = document.createElement('p');
+    message.className = 'activities-message';
+    message.textContent = 'Impossible de charger les activités locales. Agenda Google affiché ci-dessous.';
+    container.appendChild(message);
+    appendGoogleCalendarEmbed(container);
   }
 }
 
@@ -541,8 +550,60 @@ function getCachedActivities(range) {
 
 async function fetchActivities(range) {
   const { data, error } = await sb.rpc('activities_site', { p_range: range });
+  if (!error) {
+    return Array.isArray(data) ? data : [];
+  }
+
+  console.warn('RPC activities_site indisponible, tentative via tables activity_*.', error);
+  return fetchActivitiesFallback(range);
+}
+
+async function fetchActivitiesFallback(range) {
+  const bounds = RANGE_BOUNDS[range];
+  if (!bounds?.start || !bounds?.end) {
+    return [];
+  }
+
+  const startISO = bounds.start.toISOString();
+  const endISO = bounds.end.toISOString();
+
+  const { data, error } = await sb
+    .from('activity_intervals')
+    .select(`
+      id,
+      start_ts,
+      end_ts,
+      note,
+      activity_tags (
+        tags (
+          slug
+        )
+      )
+    `)
+    .lte('start_ts', endISO)
+    .gte('end_ts', startISO)
+    .order('start_ts', { ascending: false });
+
   if (error) throw error;
-  return Array.isArray(data) ? data : [];
+  const rows = Array.isArray(data) ? data : [];
+
+  return rows.map((row) => {
+    const tags = Array.isArray(row?.activity_tags)
+      ? row.activity_tags
+        .map((item) => item?.tags?.slug)
+        .filter((slug) => typeof slug === 'string' && slug.trim().length)
+      : [];
+    const primaryTag = tags[0] || null;
+    return {
+      event_id: row?.id ?? null,
+      start: row?.start_ts ?? null,
+      end: row?.end_ts ?? null,
+      title: row?.note || primaryTag || 'Activité',
+      type_label: primaryTag,
+      tags,
+      pm25: {},
+    };
+  });
 }
 
 function renderActivitiesList(events, range) {
@@ -574,6 +635,7 @@ function renderActivitiesList(events, range) {
     empty.className = 'activities-message';
     empty.textContent = 'Aucune activité sur la période.';
     container.appendChild(empty);
+    appendGoogleCalendarEmbed(container);
     setActiveActivityRow(null);
     return;
   }
@@ -603,9 +665,39 @@ function renderActivitiesList(events, range) {
   });
 
   container.appendChild(scroller);
+  appendGoogleCalendarEmbed(container);
   setActiveActivityRow(activitiesActiveId);
   enforceActivitiesScrollLimit(scroller, list);
   scrollActivitiesToRange(range, scroller, entries, list);
+}
+
+function appendGoogleCalendarEmbed(container) {
+  if (!container || !GOOGLE_CALENDAR_EMBED_URL) return;
+
+  let frame = container.querySelector('.calendar-embed-frame');
+  if (frame) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'calendar-embed-wrap';
+
+  const title = document.createElement('p');
+  title.className = 'activities-message';
+  title.textContent = 'Agenda Google';
+  wrap.appendChild(title);
+
+  frame = document.createElement('iframe');
+  frame.className = 'calendar-embed-frame';
+  frame.src = GOOGLE_CALENDAR_EMBED_URL;
+  frame.title = 'Agenda Google';
+  frame.loading = 'lazy';
+  frame.referrerPolicy = 'no-referrer-when-downgrade';
+  frame.style.width = '100%';
+  frame.style.minHeight = '420px';
+  frame.style.border = '1px solid var(--border, #D9E0EE)';
+  frame.style.borderRadius = '12px';
+
+  wrap.appendChild(frame);
+  container.appendChild(wrap);
 }
 
 function buildActivitiesControls(options = []) {
