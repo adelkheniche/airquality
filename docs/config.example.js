@@ -3,6 +3,7 @@
 
 window.SUPABASE_URL = 'https://lzsrnaciqywpbdchgso.supabase.co/rest/v1/rpc/activities_site';
 const ANON    = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx6c3pybmFjaXF5d3BiZGNoZ3NvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NzUyMDIsImV4cCI6MjA3MTQ1MTIwMn0.0AczSYj_8aAgVHh--jc0olbh3LVRMorO1MFilVR4dPY';
+window.GOOGLE_CALENDAR_EMBED_URL = 'https://calendar.google.com/calendar/embed?src=your_calendar_id%40group.calendar.google.com&ctz=Europe%2FParis';
 // Optional: Custom configuration
 const CONFIG = {
     // Default date range in days (from today backwards)
