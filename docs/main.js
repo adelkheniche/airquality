@@ -550,60 +550,8 @@ function getCachedActivities(range) {
 
 async function fetchActivities(range) {
   const { data, error } = await sb.rpc('activities_site', { p_range: range });
-  if (!error) {
-    return Array.isArray(data) ? data : [];
-  }
-
-  console.warn('RPC activities_site indisponible, tentative via tables activity_*.', error);
-  return fetchActivitiesFallback(range);
-}
-
-async function fetchActivitiesFallback(range) {
-  const bounds = RANGE_BOUNDS[range];
-  if (!bounds?.start || !bounds?.end) {
-    return [];
-  }
-
-  const startISO = bounds.start.toISOString();
-  const endISO = bounds.end.toISOString();
-
-  const { data, error } = await sb
-    .from('activity_intervals')
-    .select(`
-      id,
-      start_ts,
-      end_ts,
-      note,
-      activity_tags (
-        tags (
-          slug
-        )
-      )
-    `)
-    .lte('start_ts', endISO)
-    .gte('end_ts', startISO)
-    .order('start_ts', { ascending: false });
-
   if (error) throw error;
-  const rows = Array.isArray(data) ? data : [];
-
-  return rows.map((row) => {
-    const tags = Array.isArray(row?.activity_tags)
-      ? row.activity_tags
-        .map((item) => item?.tags?.slug)
-        .filter((slug) => typeof slug === 'string' && slug.trim().length)
-      : [];
-    const primaryTag = tags[0] || null;
-    return {
-      event_id: row?.id ?? null,
-      start: row?.start_ts ?? null,
-      end: row?.end_ts ?? null,
-      title: row?.note || primaryTag || 'Activité',
-      type_label: primaryTag,
-      tags,
-      pm25: {},
-    };
-  });
+  return Array.isArray(data) ? data : [];
 }
 
 function renderActivitiesList(events, range) {
