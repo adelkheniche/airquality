@@ -49,16 +49,46 @@
   <header class="layout-container py-6 flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
     <div class="brand flex items-center gap-5">
       <div class="brand-mark" aria-hidden="true">
-        <svg class="brand-icon" viewBox="0 0 128 128" role="img" focusable="false">
-          <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="64" cy="84" r="38"></circle>
-            <path d="M64 76V48"></path>
-            <path d="M44 56C52 30 76 20 88 20c18 0 32 14 32 32s-14 32-32 32H44L44 56"></path>
-            <path d="M68 44c8-8 24-10 32-2"></path>
-            <path d="M60 44L40 24"></path>
-            <path d="M92 28l20-8-20-8"></path>
+        <svg class="brand-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 600" role="img" focusable="false">
+          <style>
+            @keyframes bascule {
+              0%, 20% { transform: rotate(0deg); }
+              80%, 100% { transform: rotate(180deg); }
+            }
+
+            #oiseau {
+              transform-origin: 200px 400px;
+              animation: bascule 3s ease-in-out infinite alternate;
+            }
+          </style>
+
+          <rect width="400" height="600" fill="#d4d4d4"/>
+
+          <circle cx="200" cy="400" r="140" fill="#f3f1eb"/>
+
+          <g id="oiseau">
+            <circle cx="200" cy="400" r="16" fill="none" stroke="#fad014" stroke-width="10"/>
+
+            <line x1="200" y1="384" x2="200" y2="330" stroke="#fad014" stroke-width="12"/>
+
+            <path d="M 200,320 L 270,340 Q 230,280 220,240 Z" fill="#fad014"/>
+
+            <path d="M 120,150
+                     C 120,50 220,50 220,150
+                     C 220,250 200,330 200,330
+                     C 130,280 120,200 120,150 Z" fill="#fad014"/>
+
+            <path d="M 130,160
+                     C 130,80 210,80 210,160
+                     C 210,240 190,320 190,320
+                     C 140,270 130,210 130,160 Z" fill="#eab90e"/>
+
+            <circle cx="160" cy="120" r="55" fill="#fad014"/>
+
+            <polygon points="110,120 70,135 115,145" fill="#fad014"/>
+
+            <circle cx="140" cy="110" r="8" fill="#d4d4d4"/>
           </g>
-          <circle cx="64" cy="84" r="7" fill="currentColor"></circle>
         </svg>
       </div>
       <div class="brand-copy">
